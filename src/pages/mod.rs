@@ -1,4 +1,4 @@
-use crate::{Action, AppData, AppState};
+use crate::{Action, AppData, AppState, FieldBox, data_types::Struct};
 use crossterm::event::KeyEvent;
 use ratatui::{buffer::Buffer, layout::Rect};
 use ratatui_textarea::TextArea;
@@ -19,7 +19,11 @@ pub enum Page {
     Description {
         editor: TextArea<'static>,
     },
-    Structs,
+    Structs {
+        description_box: TextArea<'static>,
+        name_box: TextArea<'static>,
+        field_boxes: Vec<FieldBox>,
+    },
     Workflow,
 }
 
@@ -41,12 +45,54 @@ impl Page {
         }
     }
 
+    pub fn structs(state: &AppState) -> Self {
+        let empty_struct = Struct::empty();
+        let current_struct = state
+            .data
+            .structs
+            .get(state.structs_list_state.selected().unwrap_or_default())
+            .unwrap_or(&empty_struct);
+
+        let field_boxes = if current_struct.fields.len() == 0 {
+            vec![FieldBox {
+                field_name_box: TextArea::from(vec!["".to_string()]),
+                field_type_box: TextArea::from(vec!["".to_string()]),
+                field_note_box: TextArea::from(vec!["".to_string()]),
+            }]
+        } else {
+            current_struct
+                .fields
+                .iter()
+                .map(|field| FieldBox {
+                    field_name_box: TextArea::from(vec![field.name.to_string()]),
+                    field_type_box: TextArea::from(vec![field.field_type.to_string()]),
+                    field_note_box: TextArea::from(vec![field.note.to_string()]),
+                })
+                .collect()
+        };
+
+        let name_text = if current_struct.name.eq("New Struct") {
+            "".to_string()
+        } else {
+            current_struct.name.to_string()
+        };
+        Page::Structs {
+            description_box: TextArea::from(vec![current_struct.description.to_string()]),
+            name_box: TextArea::from(vec![name_text]),
+            field_boxes: field_boxes,
+        }
+    }
+
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
         match self {
             Page::None => {}
             Page::Home => home_page::render(area, buf, state),
             Page::Description { editor } => description_page::render(area, buf, editor),
-            Page::Structs => structs_page::render(area, buf),
+            Page::Structs {
+                description_box,
+                name_box,
+                field_boxes,
+            } => structs_page::render(area, buf, state, description_box, name_box, field_boxes),
             Page::Workflow => workflow_page::render(area, buf),
         }
     }
@@ -58,8 +104,18 @@ impl Page {
             Page::Description { editor } => {
                 description_page::handle_key_event(key_event, state, editor)
             }
-            Page::Structs => todo!(),
-            Page::Workflow => todo!(),
+            Page::Structs {
+                description_box,
+                name_box,
+                field_boxes,
+            } => structs_page::handle_key_event(
+                key_event,
+                state,
+                description_box,
+                name_box,
+                field_boxes,
+            ),
+            Page::Workflow => Action::None,
         }
     }
 }

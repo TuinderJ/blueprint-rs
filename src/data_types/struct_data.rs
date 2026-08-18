@@ -9,28 +9,29 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Struct {
-    description: String,
-    name: String,
-    fields: Vec<Field>,
+    pub description: String,
+    pub name: String,
+    pub fields: Vec<Field>,
 }
 
 impl Struct {
     pub fn new() -> Self {
         Self {
-            description: "New Struct".to_string(),
-            name: "TestStruct".to_string(),
-            fields: vec![
-                Field {
-                    name: "Field 1".to_string(),
-                    field_type: "String".to_string(),
-                    note: "This is for field 1".to_string(),
-                },
-                Field {
-                    name: "Field 2".to_string(),
-                    field_type: "String".to_string(),
-                    note: "This is another string".to_string(),
-                },
-            ],
+            description: "".to_string(),
+            name: "New Struct".to_string(),
+            fields: vec![Field {
+                name: "".to_string(),
+                field_type: "".to_string(),
+                note: "".to_string(),
+            }],
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            description: "".to_string(),
+            name: "".to_string(),
+            fields: vec![],
         }
     }
 
@@ -65,8 +66,8 @@ impl Struct {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct Field {
-    name: String,
-    field_type: String,
-    note: String,
+pub struct Field {
+    pub name: String,
+    pub field_type: String,
+    pub note: String,
 }

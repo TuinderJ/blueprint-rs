@@ -8,6 +8,7 @@ use ratatui::{
     layout::Rect,
     widgets::{ListState, StatefulWidget},
 };
+use ratatui_textarea::TextArea;
 use serde::{Deserialize, Serialize};
 
 mod pages;
@@ -32,7 +33,10 @@ struct AppState {
     should_exit: bool,
     page: Page,
     data: AppData,
+    mode: Mode,
+    active_input: ActiveInput,
     home_list_state: ListState,
+    structs_list_state: ListState,
     workflow_list_state: ListState,
 }
 
@@ -107,8 +111,42 @@ struct Task {
 enum Action {
     None,
     GoToPage(PageKind),
+    AddStruct,
+    UpdatePreview,
     Exit,
     GenerateBlueprint,
+}
+
+#[derive(PartialEq, Default, Clone, Copy)]
+enum Mode {
+    #[default]
+    Display,
+    Edit,
+}
+
+impl Mode {
+    pub fn toggle(self) -> Self {
+        match self {
+            Mode::Display => Mode::Edit,
+            Mode::Edit => Mode::Display,
+        }
+    }
+}
+
+#[derive(Default)]
+enum ActiveInput {
+    #[default]
+    None,
+    Description,
+    Name,
+    Field(usize, usize),
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldBox {
+    pub field_name_box: TextArea<'static>,
+    pub field_type_box: TextArea<'static>,
+    pub field_note_box: TextArea<'static>,
 }
 
 impl App {
@@ -147,6 +185,11 @@ impl App {
         match action {
             Action::None => {}
             Action::GoToPage(page) => state.go_to_page(page),
+            Action::AddStruct => {
+                state.data.add_struct();
+                state.reload_page();
+            }
+            Action::UpdatePreview => state.reload_page(),
             Action::Exit => state.exit(),
             Action::GenerateBlueprint => state.generate_blueprint(),
         };
@@ -167,24 +210,41 @@ impl AppState {
     fn new() -> Self {
         let mut state = Self::default();
         state.home_list_state.select(Some(0));
+        state.structs_list_state.select(Some(0));
         state.workflow_list_state.select(Some(0));
         state
     }
 
-    pub fn go_to_page(&mut self, page: PageKind) {
+    fn go_to_page(&mut self, page: PageKind) {
         match page {
             PageKind::Home => self.page = Page::home(),
             PageKind::Description => self.page = Page::description(&self.data),
-            PageKind::Structs => self.data.add_struct(),
+            PageKind::Structs => self.page = Page::structs(&self),
             PageKind::Workflow => todo!(),
         }
     }
 
-    pub fn exit(&mut self) {
+    fn reload_page(&mut self) {
+        match &self.page {
+            Page::None | Page::Description { editor: _ } | Page::Home => {}
+            Page::Structs {
+                description_box: _,
+                name_box: _,
+                field_boxes: _,
+            } => self.page = Page::structs(&self),
+            Page::Workflow => todo!(),
+        }
+    }
+
+    pub fn set_active_input(&mut self, new_input: ActiveInput) {
+        self.active_input = new_input;
+    }
+
+    fn exit(&mut self) {
         self.should_exit = true;
     }
 
-    pub fn generate_blueprint(&mut self) {
+    fn generate_blueprint(&mut self) {
         let cwd = std::env::current_dir().expect("Failed to get current working directory.");
         let src_dir = get_project_root(&cwd)
             .unwrap_or_else(create_new_project)
