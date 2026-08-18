@@ -62,7 +62,7 @@ pub fn render(area: Rect, buf: &mut Buffer, state: &mut AppState) {
         .title(Line::from(" Preview ".bold()))
         .border_set(border::THICK);
 
-    // Determine what items should be rendered on the prewiew panel based on which section is selected.
+    // Determine what items should be rendered on the prewiew panel based on which item is selected.
     let mut items: Vec<ListItem> = vec![];
     if state.home_list_state.selected() == Some(DESCRIPTION_INDEX) {
         items = state
