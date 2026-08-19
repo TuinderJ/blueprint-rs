@@ -10,22 +10,33 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 use crate::{Action, ActiveInput, AppState, FieldBox, Mode, data_types::Field, pages::PageKind};
-fn next_active_input(state: &AppState) -> ActiveInput {
+
+fn next_active_input(state: &mut AppState) -> ActiveInput {
     match state.active_input {
         ActiveInput::Description => ActiveInput::Name,
-        ActiveInput::Name => ActiveInput::Field(0, 0),
-        ActiveInput::Field(row, col) => {
+        ActiveInput::Name => {
             let current_struct = state
                 .data
                 .structs
-                .get(state.structs_list_state.selected().unwrap_or_default())
+                .get_mut(state.structs_list_state.selected().unwrap_or_default())
                 .unwrap();
-            if col == 2 {
+            if current_struct.fields.len() == 0 {
+                current_struct.add_field();
+            }
+            ActiveInput::Field(0, 0)
+        }
+        ActiveInput::Field(row, col) => {
+            let at_last_col = col == 2;
+            let current_struct = state
+                .data
+                .structs
+                .get_mut(state.structs_list_state.selected().unwrap_or_default())
+                .unwrap();
+            if at_last_col {
                 if row == current_struct.fields.len() - 1 {
-                    ActiveInput::Description
-                } else {
-                    ActiveInput::Field(row + 1, 0)
+                    current_struct.add_field();
                 }
+                ActiveInput::Field(row + 1, 0)
             } else {
                 ActiveInput::Field(row, col + 1)
             }
@@ -36,25 +47,18 @@ fn next_active_input(state: &AppState) -> ActiveInput {
 
 fn previous_active_input(state: &AppState) -> ActiveInput {
     match state.active_input {
-        ActiveInput::Description => {
-            let current_struct = state
-                .data
-                .structs
-                .get(state.structs_list_state.selected().unwrap_or_default())
-                .unwrap();
-            ActiveInput::Field(current_struct.fields.len() - 1, 2)
-        }
+        ActiveInput::Description => ActiveInput::Description,
         ActiveInput::Name => ActiveInput::Description,
         ActiveInput::Field(row, col) => {
-            if col == 0 {
-                if row == 0 {
-                    ActiveInput::Name
-                } else {
-                    ActiveInput::Field(row - 1, 0)
-                }
-            } else {
-                ActiveInput::Field(row, col - 1)
+            let at_first_row = row == 0;
+            let at_first_col = col == 0;
+            if at_first_row && at_first_col {
+                return ActiveInput::Name;
             }
+            if at_first_col {
+                return ActiveInput::Field(row - 1, 2);
+            }
+            ActiveInput::Field(row, col - 1)
         }
         _ => ActiveInput::None,
     }
@@ -268,7 +272,7 @@ pub fn handle_key_event(
             }
             Mode::Edit => {
                 // TODO:
-                state.mode = state.mode.toggle();
+                state.mode.toggle();
                 Action::UpdatePreview
             }
         },
@@ -295,15 +299,17 @@ pub fn handle_key_event(
         KeyCode::Tab => match state.mode {
             Mode::Display => Action::None,
             Mode::Edit => {
+                update_struct(state, description_box, name_box, field_boxes);
                 state.active_input = next_active_input(state);
-                Action::None
+                Action::UpdatePreview
             }
         },
         KeyCode::BackTab => match state.mode {
             Mode::Display => Action::None,
             Mode::Edit => {
+                update_struct(state, description_box, name_box, field_boxes);
                 state.active_input = previous_active_input(state);
-                Action::None
+                Action::UpdatePreview
             }
         },
         KeyCode::Enter => {
@@ -311,34 +317,21 @@ pub fn handle_key_event(
                 state.structs_list_state.selected().unwrap_or_default() == state.data.structs.len();
 
             if should_add_new_struct {
-                state.mode = state.mode.toggle();
+                state.mode.toggle();
                 state.set_active_input(ActiveInput::Description);
-                Action::AddStruct
-            } else {
-                let current_struct = state
-                    .data
-                    .structs
-                    .get_mut(state.structs_list_state.selected().unwrap_or_default())
-                    .unwrap();
-                current_struct.description = description_box.lines()[0].to_string();
-                current_struct.name = name_box.lines()[0].to_string();
-                current_struct.fields = field_boxes
-                    .iter()
-                    .map(|field_box| Field {
-                        name: field_box.field_name_box.lines()[0].to_string(),
-                        field_type: field_box.field_type_box.lines()[0].to_string(),
-                        note: field_box.field_note_box.lines()[0].to_string(),
-                    })
-                    .collect();
-
-                state.mode = state.mode.toggle();
-                let new_input = match state.mode {
-                    Mode::Display => ActiveInput::None,
-                    Mode::Edit => ActiveInput::Description,
-                };
-                state.set_active_input(new_input);
-                Action::UpdatePreview
+                state.data.add_struct();
+                return Action::UpdatePreview;
             }
+
+            state.mode.toggle();
+            update_struct(state, description_box, name_box, field_boxes);
+
+            let new_input = match state.mode {
+                Mode::Display => ActiveInput::None,
+                Mode::Edit => ActiveInput::Description,
+            };
+            state.set_active_input(new_input);
+            Action::UpdatePreview
         }
         _ => {
             if state.mode == Mode::Edit {
@@ -375,4 +368,41 @@ fn update_active_input(
         }
         _ => {}
     };
+}
+
+fn update_struct(
+    state: &mut AppState,
+    description_box: &TextArea,
+    name_box: &TextArea,
+    field_boxes: &Vec<FieldBox>,
+) {
+    let current_struct = state
+        .data
+        .structs
+        .get_mut(state.structs_list_state.selected().unwrap_or_default())
+        .unwrap();
+
+    current_struct.description = description_box.lines()[0].to_string();
+    current_struct.name = name_box.lines()[0].to_string();
+    current_struct.fields = field_boxes
+        .iter()
+        .filter_map(|field_box| {
+            let name = field_box.field_name_box.lines()[0].to_string();
+            let field_type = field_box.field_type_box.lines()[0].to_string();
+            let note = field_box.field_note_box.lines()[0].to_string();
+
+            if state.mode == Mode::Display
+                && name.is_empty()
+                && field_type.is_empty()
+                && note.is_empty()
+            {
+                return None;
+            }
+            Some(Field {
+                name: name,
+                field_type: field_type,
+                note: note,
+            })
+        })
+        .collect();
 }

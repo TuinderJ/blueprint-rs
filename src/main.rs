@@ -111,7 +111,6 @@ struct Task {
 enum Action {
     None,
     GoToPage(PageKind),
-    AddStruct,
     UpdatePreview,
     Exit,
     GenerateBlueprint,
@@ -125,8 +124,8 @@ enum Mode {
 }
 
 impl Mode {
-    pub fn toggle(self) -> Self {
-        match self {
+    pub fn toggle(&mut self) {
+        *self = match *self {
             Mode::Display => Mode::Edit,
             Mode::Edit => Mode::Display,
         }
@@ -185,10 +184,6 @@ impl App {
         match action {
             Action::None => {}
             Action::GoToPage(page) => state.go_to_page(page),
-            Action::AddStruct => {
-                state.data.add_struct();
-                state.reload_page();
-            }
             Action::UpdatePreview => state.reload_page(),
             Action::Exit => state.exit(),
             Action::GenerateBlueprint => state.generate_blueprint(),
