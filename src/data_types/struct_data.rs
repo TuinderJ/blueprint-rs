@@ -19,11 +19,7 @@ impl Struct {
         Self {
             description: "".to_string(),
             name: "New Struct".to_string(),
-            fields: vec![Field {
-                name: "".to_string(),
-                field_type: "".to_string(),
-                note: "".to_string(),
-            }],
+            fields: vec![],
         }
     }
 
@@ -63,6 +59,10 @@ impl Struct {
 
         ListItem::new(Text::from(text))
     }
+
+    pub fn add_field(&mut self) {
+        self.fields.push(Field::new());
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -70,4 +70,14 @@ pub struct Field {
     pub name: String,
     pub field_type: String,
     pub note: String,
+}
+
+impl Field {
+    fn new() -> Self {
+        Self {
+            name: "".to_string(),
+            field_type: "".to_string(),
+            note: "".to_string(),
+        }
+    }
 }
