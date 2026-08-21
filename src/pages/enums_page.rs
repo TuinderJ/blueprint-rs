@@ -9,36 +9,38 @@ use ratatui::{
 };
 use ratatui_textarea::TextArea;
 
-use crate::{Action, ActiveInput, AppState, FieldBox, Mode, data_types::Field, pages::PageKind};
+use crate::{
+    Action, ActiveInput, AppState, Mode, VariantBox, data_types::Variant, pages::PageKind,
+};
 
 fn next_active_input(state: &mut AppState) -> ActiveInput {
     match state.active_input {
         ActiveInput::Description => ActiveInput::Name,
         ActiveInput::Name => {
-            let current_struct = state
+            let current_enum = state
                 .data
-                .structs
-                .get_mut(state.structs_list_state.selected().unwrap_or_default())
+                .enums
+                .get_mut(state.enums_list_state.selected().unwrap_or_default())
                 .unwrap();
-            if current_struct.fields.len() == 0 {
-                current_struct.add_field();
+            if current_enum.variants.len() == 0 {
+                current_enum.add_variant();
             }
-            ActiveInput::Field(0, 0)
+            ActiveInput::Variant(0, 0)
         }
-        ActiveInput::Field(row, col) => {
-            let at_last_col = col == 2;
-            let current_struct = state
+        ActiveInput::Variant(row, col) => {
+            let at_last_col = col == 1;
+            let current_enum = state
                 .data
-                .structs
-                .get_mut(state.structs_list_state.selected().unwrap_or_default())
+                .enums
+                .get_mut(state.enums_list_state.selected().unwrap_or_default())
                 .unwrap();
             if at_last_col {
-                if row == current_struct.fields.len() - 1 {
-                    current_struct.add_field();
+                if row == current_enum.variants.len() - 1 {
+                    current_enum.add_variant();
                 }
-                ActiveInput::Field(row + 1, 0)
+                ActiveInput::Variant(row + 1, 0)
             } else {
-                ActiveInput::Field(row, col + 1)
+                ActiveInput::Variant(row, col + 1)
             }
         }
         _ => ActiveInput::None,
@@ -49,16 +51,16 @@ fn previous_active_input(state: &AppState) -> ActiveInput {
     match state.active_input {
         ActiveInput::Description => ActiveInput::Description,
         ActiveInput::Name => ActiveInput::Description,
-        ActiveInput::Field(row, col) => {
+        ActiveInput::Variant(row, col) => {
             let at_first_row = row == 0;
             let at_first_col = col == 0;
             if at_first_row && at_first_col {
                 return ActiveInput::Name;
             }
             if at_first_col {
-                return ActiveInput::Field(row - 1, 2);
+                return ActiveInput::Variant(row - 1, 1);
             }
-            ActiveInput::Field(row, col - 1)
+            ActiveInput::Variant(row, col - 1)
         }
         _ => ActiveInput::None,
     }
@@ -70,7 +72,7 @@ pub fn render(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    field_boxes: &Vec<FieldBox>,
+    variant_boxes: &Vec<VariantBox>,
 ) {
     let outer_area = area.inner(Margin {
         horizontal: 1,
@@ -120,10 +122,10 @@ pub fn render(
         .border_style(Style::default().fg(color));
     let list_items: Vec<ListItem> = state
         .data
-        .structs
+        .enums
         .iter()
         .map(|item| ListItem::from(item.name.to_string()))
-        .chain(std::iter::once(ListItem::from(Line::from("+ New Struct"))))
+        .chain(std::iter::once(ListItem::from(Line::from("+ New Enum"))))
         .collect();
 
     let list = List::new(list_items)
@@ -132,7 +134,7 @@ pub fn render(
         .highlight_style(Modifier::REVERSED)
         .highlight_symbol("> ");
 
-    StatefulWidget::render(list, left_pane, buf, &mut state.structs_list_state);
+    StatefulWidget::render(list, left_pane, buf, &mut state.enums_list_state);
 
     // Right Pane
     let color = match state.mode {
@@ -140,7 +142,7 @@ pub fn render(
         Mode::Edit => Color::White,
     };
     let right_block = Block::bordered()
-        .title(Line::from(" Struct ".bold()))
+        .title(Line::from(" Enum ".bold()))
         .border_set(border::THICK)
         .border_style(Style::default().fg(color));
 
@@ -148,7 +150,7 @@ pub fn render(
 
     right_block.render(right_pane, buf);
 
-    let [description_area, name_area, fields_area] = Layout::vertical([
+    let [description_area, name_area, variants_area] = Layout::vertical([
         Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Fill(1),
@@ -174,27 +176,23 @@ pub fn render(
     let name_block = Block::bordered()
         .border_set(border::THICK)
         .border_style(Style::default().fg(color))
-        .title(" Struct Name ");
+        .title(" Enum Name ");
     let name_block_area = name_block.inner(name_area);
     name_block.render(name_area, buf);
     Widget::render(name_box, name_block_area, buf);
 
-    let field_block = Block::default().title("Fields");
-    let field_block_area = field_block.inner(fields_area);
-    let areas =
-        Layout::vertical(field_boxes.iter().map(|_| Constraint::Length(3))).split(field_block_area);
-    field_block.render(fields_area, buf);
+    let variant_block = Block::default().title("Variants");
+    let variant_block_area = variant_block.inner(variants_area);
+    let areas = Layout::vertical(variant_boxes.iter().map(|_| Constraint::Length(3)))
+        .split(variant_block_area);
+    variant_block.render(variants_area, buf);
 
-    for (index, field_box) in field_boxes.iter().enumerate() {
-        let [name_area, type_area, note_area] = Layout::horizontal([
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-        ])
-        .areas(areas[index]);
+    for (index, variant_box) in variant_boxes.iter().enumerate() {
+        let [name_area, note_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).areas(areas[index]);
 
         let color = match state.active_input {
-            ActiveInput::Field(row, col) => {
+            ActiveInput::Variant(row, col) => {
                 if row == index && col == 0 {
                     Color::White
                 } else {
@@ -206,32 +204,14 @@ pub fn render(
         let block = Block::bordered()
             .border_set(border::THICK)
             .border_style(Style::default().fg(color))
-            .title(" Field Name ");
+            .title(" Variant Name ");
         let block_area = block.inner(name_area);
         block.render(name_area, buf);
-        field_box.field_name_box.render(block_area, buf);
+        variant_box.name_box.render(block_area, buf);
 
         let color = match state.active_input {
-            ActiveInput::Field(row, col) => {
+            ActiveInput::Variant(row, col) => {
                 if row == index && col == 1 {
-                    Color::White
-                } else {
-                    Color::DarkGray
-                }
-            }
-            _ => Color::DarkGray,
-        };
-        let block = Block::bordered()
-            .border_set(border::THICK)
-            .border_style(Style::default().fg(color))
-            .title(" Field Type ");
-        let block_area = block.inner(type_area);
-        block.render(type_area, buf);
-        field_box.field_type_box.render(block_area, buf);
-
-        let color = match state.active_input {
-            ActiveInput::Field(row, col) => {
-                if row == index && col == 2 {
                     Color::White
                 } else {
                     Color::DarkGray
@@ -245,7 +225,7 @@ pub fn render(
             .title(" Notes ");
         let block_area = block.inner(note_area);
         block.render(note_area, buf);
-        field_box.field_note_box.render(block_area, buf);
+        variant_box.note_box.render(block_area, buf);
     }
 }
 
@@ -254,18 +234,15 @@ pub fn handle_key_event(
     state: &mut AppState,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    field_boxes: &mut Vec<FieldBox>,
+    variant_boxes: &mut Vec<VariantBox>,
 ) -> Action {
     match key_event.code {
         KeyCode::Esc => match state.mode {
             Mode::Display => {
-                state.data.structs.retain_mut(|item| {
-                    item.fields.retain(|field| {
-                        !field.name.is_empty()
-                            || !field.field_type.is_empty()
-                            || !field.note.is_empty()
-                    });
-                    !item.name.is_empty() && !(item.name == "New Struct".to_string())
+                state.data.enums.retain_mut(|item| {
+                    item.variants
+                        .retain(|variant| !variant.name.is_empty() || !variant.note.is_empty());
+                    !item.name.is_empty() && !(item.name == "New enum".to_string())
                 });
                 Action::GoToPage(PageKind::Home)
             }
@@ -276,28 +253,28 @@ pub fn handle_key_event(
         },
         KeyCode::Char('j') | KeyCode::Down => match state.mode {
             Mode::Display => {
-                state.structs_list_state.select_next();
+                state.enums_list_state.select_next();
                 Action::UpdatePreview
             }
             Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, field_boxes);
+                update_active_input(state, key_event, description_box, name_box, variant_boxes);
                 Action::None
             }
         },
         KeyCode::Char('k') | KeyCode::Up => match state.mode {
             Mode::Display => {
-                state.structs_list_state.select_previous();
+                state.enums_list_state.select_previous();
                 Action::UpdatePreview
             }
             Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, field_boxes);
+                update_active_input(state, key_event, description_box, name_box, variant_boxes);
                 Action::None
             }
         },
         KeyCode::Tab => match state.mode {
             Mode::Display => Action::None,
             Mode::Edit => {
-                update_struct(state, description_box, name_box, field_boxes);
+                update_enum(state, description_box, name_box, variant_boxes);
                 state.active_input = next_active_input(state);
                 Action::UpdatePreview
             }
@@ -305,24 +282,24 @@ pub fn handle_key_event(
         KeyCode::BackTab => match state.mode {
             Mode::Display => Action::None,
             Mode::Edit => {
-                update_struct(state, description_box, name_box, field_boxes);
+                update_enum(state, description_box, name_box, variant_boxes);
                 state.active_input = previous_active_input(state);
                 Action::UpdatePreview
             }
         },
         KeyCode::Enter => {
-            let should_add_new_struct =
-                state.structs_list_state.selected().unwrap_or_default() == state.data.structs.len();
+            let should_add_new_enum =
+                state.enums_list_state.selected().unwrap_or_default() == state.data.enums.len();
 
-            if should_add_new_struct {
+            if should_add_new_enum {
                 state.mode.toggle();
                 state.set_active_input(ActiveInput::Description);
-                state.data.add_struct();
+                state.data.add_enum();
                 return Action::UpdatePreview;
             }
 
             state.mode.toggle();
-            update_struct(state, description_box, name_box, field_boxes);
+            update_enum(state, description_box, name_box, variant_boxes);
 
             let new_input = match state.mode {
                 Mode::Display => ActiveInput::None,
@@ -333,7 +310,7 @@ pub fn handle_key_event(
         }
         _ => {
             if state.mode == Mode::Edit {
-                update_active_input(state, key_event, description_box, name_box, field_boxes);
+                update_active_input(state, key_event, description_box, name_box, variant_boxes);
             };
             Action::None
         }
@@ -345,7 +322,7 @@ fn update_active_input(
     key_event: KeyEvent,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    field_boxes: &mut Vec<FieldBox>,
+    variant_boxes: &mut Vec<VariantBox>,
 ) {
     match state.active_input {
         ActiveInput::Description => {
@@ -354,53 +331,42 @@ fn update_active_input(
         ActiveInput::Name => {
             name_box.input(key_event);
         }
-        ActiveInput::Field(row, col) => {
-            let field_box = field_boxes.get_mut(row).unwrap();
+        ActiveInput::Variant(row, col) => {
+            let variant_box = variant_boxes.get_mut(row).unwrap();
             if col == 0 {
-                field_box.field_name_box.input(key_event);
+                variant_box.name_box.input(key_event);
             } else if col == 1 {
-                field_box.field_type_box.input(key_event);
-            } else if col == 2 {
-                field_box.field_note_box.input(key_event);
+                variant_box.note_box.input(key_event);
             }
         }
         _ => {}
     };
 }
 
-fn update_struct(
+fn update_enum(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    field_boxes: &Vec<FieldBox>,
+    variant_boxes: &Vec<VariantBox>,
 ) {
-    let current_struct = state
+    let current_enum = state
         .data
-        .structs
-        .get_mut(state.structs_list_state.selected().unwrap_or_default())
+        .enums
+        .get_mut(state.enums_list_state.selected().unwrap_or_default())
         .unwrap();
 
-    current_struct.description = description_box.lines()[0].to_string();
-    current_struct.name = name_box.lines()[0].to_string();
-    current_struct.fields = field_boxes
+    current_enum.description = description_box.lines()[0].to_string();
+    current_enum.name = name_box.lines()[0].to_string();
+    current_enum.variants = variant_boxes
         .iter()
-        .filter_map(|field_box| {
-            let name = field_box.field_name_box.lines()[0].to_string();
-            let field_type = field_box.field_type_box.lines()[0].to_string();
-            let note = field_box.field_note_box.lines()[0].to_string();
+        .filter_map(|variant_box| {
+            let name = variant_box.name_box.lines()[0].to_string();
+            let note = variant_box.note_box.lines()[0].to_string();
 
-            if state.mode == Mode::Display
-                && name.is_empty()
-                && field_type.is_empty()
-                && note.is_empty()
-            {
+            if state.mode == Mode::Display && name.is_empty() && note.is_empty() {
                 return None;
             }
-            Some(Field {
-                name,
-                field_type,
-                note,
-            })
+            Some(Variant { name, note })
         })
         .collect();
 }

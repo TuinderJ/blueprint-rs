@@ -9,16 +9,11 @@ use ratatui::{
     widgets::{ListState, StatefulWidget},
 };
 use ratatui_textarea::TextArea;
-use serde::{Deserialize, Serialize};
 
 mod pages;
-use crate::{data_types::Struct, pages::PageKind};
+use crate::{data_types::AppData, pages::PageKind};
 use pages::Page;
 mod data_types;
-
-const DESCRIPTION_INDEX: usize = 0;
-const STRUCTS_INDEX: usize = 1;
-const WORKFLOW_INDEX: usize = 2;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -37,75 +32,8 @@ struct AppState {
     active_input: ActiveInput,
     home_list_state: ListState,
     structs_list_state: ListState,
+    enums_list_state: ListState,
     workflow_list_state: ListState,
-}
-
-#[derive(Default, Serialize, Deserialize)]
-struct AppData {
-    description: String,
-    structs: Vec<Struct>,
-    enums: Vec<Enum>,
-    traits: Vec<Trait>,
-    // TODO
-    module_structure: String,
-    error_types: Vec<ErrorType>,
-    cli_commands: Vec<Command>,
-    external_dependencies: Vec<String>,
-    workflow: Workflow,
-}
-
-impl AppData {
-    fn add_struct(&mut self) {
-        self.structs.push(Struct::new());
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct Enum {
-    description: String,
-    name: String,
-    variants: Vec<Variant>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Variant {
-    name: String,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Trait {
-    name: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct ErrorType {
-    name: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Command {
-    name: String,
-    description: String,
-    subcommands: Vec<Command>,
-}
-
-#[derive(Default, Serialize, Deserialize)]
-struct Workflow {
-    lists: Vec<List>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct List {
-    header: String,
-    tasks: Vec<Task>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Task {
-    title: String,
-    completed: bool,
-    subtasks: Vec<Task>,
 }
 
 enum Action {
@@ -139,6 +67,7 @@ enum ActiveInput {
     Description,
     Name,
     Field(usize, usize),
+    Variant(usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +75,12 @@ pub struct FieldBox {
     pub field_name_box: TextArea<'static>,
     pub field_type_box: TextArea<'static>,
     pub field_note_box: TextArea<'static>,
+}
+
+#[derive(Debug, Clone)]
+pub struct VariantBox {
+    pub name_box: TextArea<'static>,
+    pub note_box: TextArea<'static>,
 }
 
 impl App {
@@ -206,6 +141,7 @@ impl AppState {
         let mut state = Self::default();
         state.home_list_state.select(Some(0));
         state.structs_list_state.select(Some(0));
+        state.enums_list_state.select(Some(0));
         state.workflow_list_state.select(Some(0));
         state
     }
@@ -215,6 +151,7 @@ impl AppState {
             PageKind::Home => self.page = Page::home(),
             PageKind::Description => self.page = Page::description(&self.data),
             PageKind::Structs => self.page = Page::structs(&self),
+            PageKind::Enums => self.page = Page::enums(&self),
             PageKind::Workflow => todo!(),
         }
     }
@@ -227,6 +164,11 @@ impl AppState {
                 name_box: _,
                 field_boxes: _,
             } => self.page = Page::structs(&self),
+            Page::Enums {
+                description_box: _,
+                name_box: _,
+                variant_boxes: _,
+            } => self.page = Page::enums(&self),
             Page::Workflow => todo!(),
         }
     }
@@ -245,7 +187,7 @@ impl AppState {
             .unwrap_or_else(create_new_project)
             .join("src");
 
-        let output_file_json = src_dir.clone().join("blueprint.json");
+        let output_file_json = src_dir.clone().join(".blueprint.json");
         let output_file_md = src_dir.join("blueprint.md");
 
         let json_string = serde_json::to_string(&self.data).expect("couldn't parse to json");

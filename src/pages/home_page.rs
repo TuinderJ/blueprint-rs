@@ -1,6 +1,6 @@
 use crate::{
-    Action, AppState, DESCRIPTION_INDEX, STRUCTS_INDEX, WORKFLOW_INDEX,
-    pages::{Page, PageKind},
+    Action, AppState,
+    pages::{DESCRIPTION_INDEX, ENUMS_INDEX, Page, PageKind, STRUCTS_INDEX, WORKFLOW_INDEX},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -78,6 +78,13 @@ pub fn render(area: Rect, buf: &mut Buffer, state: &mut AppState) {
             .iter()
             .map(|item| item.to_list_item())
             .collect();
+    } else if state.home_list_state.selected() == Some(ENUMS_INDEX) {
+        items = state
+            .data
+            .enums
+            .iter()
+            .map(|item| item.to_list_item())
+            .collect();
     }
     let list = List::new(items).block(right_block);
 
@@ -94,6 +101,8 @@ pub fn handle_key_event(key_event: KeyEvent, state: &mut AppState) -> Action {
                 return Action::GoToPage(PageKind::Description);
             } else if state.home_list_state.selected() == Some(STRUCTS_INDEX) {
                 return Action::GoToPage(PageKind::Structs);
+            } else if state.home_list_state.selected() == Some(ENUMS_INDEX) {
+                return Action::GoToPage(PageKind::Enums);
             } else if state.home_list_state.selected() == Some(WORKFLOW_INDEX) {
                 return Action::GoToPage(PageKind::Workflow);
             };
