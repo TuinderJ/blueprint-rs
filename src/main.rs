@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::eyre::{Ok, Result};
 use crossterm::event::{self, Event, KeyEvent, KeyEventKind};
@@ -14,6 +17,9 @@ mod pages;
 use crate::{data_types::AppData, pages::PageKind};
 use pages::Page;
 mod data_types;
+
+const JSON_FILE: &str = ".blueprint.json";
+const MD_FILE: &str = "blueprint.md";
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -85,7 +91,23 @@ pub struct VariantBox {
 
 impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        let mut state = AppState::new();
+        let cwd = std::env::current_dir().expect("Failed to get current working directory.");
+        let src_dir = get_project_root(&cwd)
+            .unwrap_or_else(create_new_project)
+            .join("src");
+
+        let file_json = src_dir.clone().join(JSON_FILE);
+        // TODO: check if the markdown file has changed to alert the user
+        let _file_md = src_dir.join(MD_FILE);
+
+        let exists = file_json.try_exists();
+        let mut state = match exists {
+            std::result::Result::Ok(true) => AppState::from(file_json),
+            std::result::Result::Ok(false) => AppState::new(),
+            std::result::Result::Err(_) => AppState::new(),
+        };
+
+        //Ok(_) => AppState::from(file_json),
         while !state.should_exit {
             terminal.draw(|frame| self.draw(frame, &mut state))?;
             self.handle_events(&mut state)?;
@@ -146,6 +168,14 @@ impl AppState {
         state
     }
 
+    // TODO: better error handling
+    fn from(path: PathBuf) -> Self {
+        let mut state = Self::new();
+        let json = fs::read_to_string(path).expect("Failed to read from json file");
+        state.data = serde_json::from_str(&json).expect("Failed to parse json");
+        state
+    }
+
     fn go_to_page(&mut self, page: PageKind) {
         match page {
             PageKind::Home => self.page = Page::home(),
@@ -187,8 +217,8 @@ impl AppState {
             .unwrap_or_else(create_new_project)
             .join("src");
 
-        let output_file_json = src_dir.clone().join(".blueprint.json");
-        let output_file_md = src_dir.join("blueprint.md");
+        let output_file_json = src_dir.clone().join(JSON_FILE);
+        let output_file_md = src_dir.join(MD_FILE);
 
         let json_string = serde_json::to_string(&self.data).expect("couldn't parse to json");
         std::fs::write(&output_file_json, json_string).expect("couldn't write to json file");
