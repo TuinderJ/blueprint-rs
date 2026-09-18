@@ -38,32 +38,46 @@ impl Trait {
     }
 
     pub fn to_list_item(&self) -> ListItem<'_> {
-        let header: Vec<Line> = vec![
-            Line::from(vec!["/// ".gray(), self.description.to_string().gray()]),
-            Line::from(vec!["trait: ".to_span(), self.name.to_span()]),
-            Line::default(),
-        ];
+        let mut header: Vec<Line> = vec![];
+        if !self.description.is_empty() {
+            header.push(Line::from(vec![
+                "/// ".dark_gray(),
+                self.description.to_string().dark_gray(),
+            ]))
+        };
+        header.push(Line::from(vec![
+            "trait: ".magenta(),
+            self.name.to_span(),
+            " {".to_span(),
+        ]));
 
         let mut methods: Vec<Line> = vec![];
         for method in &self.methods {
             methods.push(Line::from(vec![
-                method.name.to_span(),
-                " => ".gray(),
+                "    ".to_span(),
+                method.name.to_span().cyan(),
+                " => ".dark_gray(),
                 method.return_type.to_span(),
-                "{".to_span(),
+                " {".to_span(),
             ]));
 
             for argument in &method.arguments {
+                let argument_type = if argument.argument_type.is_empty() {
+                    "unknown...".dark_gray()
+                } else {
+                    argument.argument_type.to_span()
+                };
                 methods.push(Line::from(vec![
-                    "    ".to_span(),
-                    argument.name.to_span(),
+                    "        ".to_span(),
+                    argument.name.to_span().yellow(),
                     ": ".to_span(),
-                    argument.argument_type.to_span(),
+                    argument_type,
                 ]));
             }
-            methods.push(Line::from("}"));
-            methods.push(Line::from(""));
+            methods.push(Line::from("    }"));
         }
+        methods.push(Line::from("}".to_string()));
+
         let footer = vec![Line::from("".to_string()), Line::from("".to_string())];
 
         let text: Vec<Line> = header
