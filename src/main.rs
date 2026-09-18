@@ -39,7 +39,7 @@ struct AppState {
     home_list_state: ListState,
     structs_list_state: ListState,
     enums_list_state: ListState,
-    workflow_list_state: ListState,
+    traits_list_state: ListState,
 }
 
 enum Action {
@@ -74,6 +74,7 @@ enum ActiveInput {
     Name,
     Field(usize, usize),
     Variant(usize, usize),
+    Method(usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +88,19 @@ pub struct FieldBox {
 pub struct VariantBox {
     pub name_box: TextArea<'static>,
     pub note_box: TextArea<'static>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MethodBox {
+    pub name_box: TextArea<'static>,
+    pub return_type_box: TextArea<'static>,
+    pub argument_boxes: Vec<ArgumentBox>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArgumentBox {
+    pub name_box: TextArea<'static>,
+    pub argument_type_box: TextArea<'static>,
 }
 
 impl App {
@@ -164,7 +178,7 @@ impl AppState {
         state.home_list_state.select(Some(0));
         state.structs_list_state.select(Some(0));
         state.enums_list_state.select(Some(0));
-        state.workflow_list_state.select(Some(0));
+        state.traits_list_state.select(Some(0));
         state
     }
 
@@ -182,7 +196,7 @@ impl AppState {
             PageKind::Description => self.page = Page::description(&self.data),
             PageKind::Structs => self.page = Page::structs(&self),
             PageKind::Enums => self.page = Page::enums(&self),
-            PageKind::Workflow => todo!(),
+            PageKind::Traits => self.page = Page::traits(&self),
         }
     }
 
@@ -199,7 +213,11 @@ impl AppState {
                 name_box: _,
                 variant_boxes: _,
             } => self.page = Page::enums(&self),
-            Page::Workflow => todo!(),
+            Page::Traits {
+                description_box: _,
+                name_box: _,
+                method_boxes: _,
+            } => self.page = Page::traits(&self),
         }
     }
 

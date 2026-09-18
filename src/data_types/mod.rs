@@ -1,9 +1,11 @@
 mod enum_data;
 mod struct_data;
+mod traits_data;
 
 pub use enum_data::*;
 use serde::{Deserialize, Serialize};
 pub use struct_data::*;
+pub use traits_data::*;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct AppData {
@@ -27,11 +29,10 @@ impl AppData {
     pub fn add_enum(&mut self) {
         self.enums.push(Enum::new());
     }
-}
 
-#[derive(Serialize, Deserialize)]
-pub struct Trait {
-    pub name: String,
+    pub fn add_trait(&mut self) {
+        self.traits.push(Trait::new());
+    }
 }
 
 #[derive(Serialize, Deserialize)]

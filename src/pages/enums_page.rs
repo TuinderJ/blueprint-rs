@@ -16,17 +16,7 @@ use crate::{
 fn next_active_input(state: &mut AppState) -> ActiveInput {
     match state.active_input {
         ActiveInput::Description => ActiveInput::Name,
-        ActiveInput::Name => {
-            let current_enum = state
-                .data
-                .enums
-                .get_mut(state.enums_list_state.selected().unwrap_or_default())
-                .unwrap();
-            if current_enum.variants.len() == 0 {
-                current_enum.add_variant();
-            }
-            ActiveInput::Variant(0, 0)
-        }
+        ActiveInput::Name => ActiveInput::Variant(0, 0),
         ActiveInput::Variant(row, col) => {
             let at_last_col = col == 1;
             let current_enum = state
@@ -236,84 +226,68 @@ pub fn handle_key_event(
     name_box: &mut TextArea,
     variant_boxes: &mut Vec<VariantBox>,
 ) -> Action {
-    match key_event.code {
-        KeyCode::Esc => match state.mode {
-            Mode::Display => {
+    match state.mode {
+        Mode::Display => match key_event.code {
+            KeyCode::Esc => {
                 state.data.enums.retain_mut(|item| {
                     item.variants
                         .retain(|variant| !variant.name.is_empty() || !variant.note.is_empty());
-                    !item.name.is_empty() && !(item.name == "New enum".to_string())
+                    !item.name.is_empty() && !(item.name == "New Enum".to_string())
                 });
                 Action::GoToPage(PageKind::Home)
             }
-            Mode::Edit => {
-                state.mode.toggle();
-                Action::UpdatePreview
-            }
-        },
-        KeyCode::Char('j') | KeyCode::Down => match state.mode {
-            Mode::Display => {
+            KeyCode::Char('j') | KeyCode::Down => {
                 state.enums_list_state.select_next();
                 Action::UpdatePreview
             }
-            Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, variant_boxes);
-                Action::None
-            }
-        },
-        KeyCode::Char('k') | KeyCode::Up => match state.mode {
-            Mode::Display => {
+            KeyCode::Char('k') | KeyCode::Up => {
                 state.enums_list_state.select_previous();
                 Action::UpdatePreview
             }
-            Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, variant_boxes);
-                Action::None
+            KeyCode::Enter => {
+                let should_add_new_enum =
+                    state.enums_list_state.selected().unwrap_or_default() == state.data.enums.len();
+
+                if should_add_new_enum {
+                    state.mode.toggle();
+                    state.set_active_input(ActiveInput::Description);
+                    state.data.add_enum();
+                    return Action::UpdatePreview;
+                }
+
+                state.mode.toggle();
+                state.set_active_input(ActiveInput::Description);
+                Action::UpdatePreview
             }
+            _ => Action::None,
         },
-        KeyCode::Tab => match state.mode {
-            Mode::Display => Action::None,
-            Mode::Edit => {
+        Mode::Edit => match key_event.code {
+            KeyCode::Esc => {
+                state.mode.toggle();
+                Action::UpdatePreview
+            }
+            KeyCode::Tab => {
                 update_enum(state, description_box, name_box, variant_boxes);
                 state.active_input = next_active_input(state);
                 Action::UpdatePreview
             }
-        },
-        KeyCode::BackTab => match state.mode {
-            Mode::Display => Action::None,
-            Mode::Edit => {
+            KeyCode::BackTab => {
                 update_enum(state, description_box, name_box, variant_boxes);
                 state.active_input = previous_active_input(state);
                 Action::UpdatePreview
             }
-        },
-        KeyCode::Enter => {
-            let should_add_new_enum =
-                state.enums_list_state.selected().unwrap_or_default() == state.data.enums.len();
-
-            if should_add_new_enum {
+            KeyCode::Enter => {
                 state.mode.toggle();
-                state.set_active_input(ActiveInput::Description);
-                state.data.add_enum();
-                return Action::UpdatePreview;
+                update_enum(state, description_box, name_box, variant_boxes);
+
+                state.set_active_input(ActiveInput::None);
+                Action::UpdatePreview
             }
-
-            state.mode.toggle();
-            update_enum(state, description_box, name_box, variant_boxes);
-
-            let new_input = match state.mode {
-                Mode::Display => ActiveInput::None,
-                Mode::Edit => ActiveInput::Description,
-            };
-            state.set_active_input(new_input);
-            Action::UpdatePreview
-        }
-        _ => {
-            if state.mode == Mode::Edit {
+            _ => {
                 update_active_input(state, key_event, description_box, name_box, variant_boxes);
-            };
-            Action::None
-        }
+                Action::None
+            }
+        },
     }
 }
 
