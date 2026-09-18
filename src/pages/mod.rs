@@ -1,22 +1,23 @@
 use crate::{
-    Action, AppData, AppState, FieldBox, VariantBox,
-    data_types::{Enum, Struct},
+    Action, AppData, AppState, ArgumentBox, FieldBox, MethodBox, VariantBox,
+    data_types::{Enum, Struct, Trait},
 };
 use crossterm::event::KeyEvent;
 use ratatui::{buffer::Buffer, layout::Rect};
 use ratatui_textarea::TextArea;
 use strum::{Display, EnumIter};
 
-pub mod description_page;
+mod description_page;
 mod enums_page;
-pub mod home_page;
+mod home_page;
 mod structs_page;
+mod traits_page;
 mod workflow_page;
 
 pub const DESCRIPTION_INDEX: usize = 0;
 pub const STRUCTS_INDEX: usize = 1;
 pub const ENUMS_INDEX: usize = 2;
-pub const WORKFLOW_INDEX: usize = 3;
+pub const TRAITS_INDEX: usize = 3;
 
 #[derive(Clone, Display, Debug, Default, EnumIter)]
 pub enum Page {
@@ -38,7 +39,11 @@ pub enum Page {
         name_box: TextArea<'static>,
         variant_boxes: Vec<VariantBox>,
     },
-    Workflow,
+    Traits {
+        description_box: TextArea<'static>,
+        name_box: TextArea<'static>,
+        method_boxes: Vec<MethodBox>,
+    },
 }
 
 pub enum PageKind {
@@ -46,7 +51,7 @@ pub enum PageKind {
     Description,
     Structs,
     Enums,
-    Workflow,
+    Traits,
 }
 
 impl Page {
@@ -122,7 +127,7 @@ impl Page {
                 .collect()
         };
 
-        let name_text = if current_enum.name.eq("New Struct") {
+        let name_text = if current_enum.name.eq("New Enum") {
             "".to_string()
         } else {
             current_enum.name.to_string()
@@ -131,6 +136,60 @@ impl Page {
             description_box: TextArea::from(vec![current_enum.description.to_string()]),
             name_box: TextArea::from(vec![name_text]),
             variant_boxes: variant_boxes,
+        }
+    }
+
+    pub fn traits(state: &AppState) -> Self {
+        let empty_trait = Trait::default();
+        let current_trait = state
+            .data
+            .traits
+            .get(state.traits_list_state.selected().unwrap_or_default())
+            .unwrap_or(&empty_trait);
+
+        let method_boxes = if current_trait.methods.len() == 0 {
+            let argument_boxes = vec![ArgumentBox {
+                name_box: TextArea::from(vec!["".to_string()]),
+                argument_type_box: TextArea::from(vec!["".to_string()]),
+            }];
+            vec![MethodBox {
+                name_box: TextArea::from(vec!["".to_string()]),
+                return_type_box: TextArea::from(vec!["".to_string()]),
+                argument_boxes,
+            }]
+        } else {
+            current_trait
+                .methods
+                .iter()
+                .map(|method| {
+                    let argument_boxes = method
+                        .arguments
+                        .iter()
+                        .map(|argument| ArgumentBox {
+                            name_box: TextArea::from(vec![argument.name.to_string()]),
+                            argument_type_box: TextArea::from(vec![
+                                argument.argument_type.to_string(),
+                            ]),
+                        })
+                        .collect();
+                    MethodBox {
+                        name_box: TextArea::from(vec![method.name.to_string()]),
+                        return_type_box: TextArea::from(vec![method.return_type.to_string()]),
+                        argument_boxes,
+                    }
+                })
+                .collect()
+        };
+
+        let name_text = if current_trait.name.eq("New Trait") {
+            "".to_string()
+        } else {
+            current_trait.name.to_string()
+        };
+        Page::Traits {
+            description_box: TextArea::from(vec![current_trait.description.to_string()]),
+            name_box: TextArea::from(vec![name_text]),
+            method_boxes: method_boxes,
         }
     }
 
@@ -149,7 +208,11 @@ impl Page {
                 name_box,
                 variant_boxes,
             } => enums_page::render(area, buf, state, description_box, name_box, variant_boxes),
-            Page::Workflow => workflow_page::render(area, buf),
+            Page::Traits {
+                description_box,
+                name_box,
+                method_boxes,
+            } => traits_page::render(area, buf, state, description_box, name_box, method_boxes),
         }
     }
 
@@ -182,7 +245,17 @@ impl Page {
                 name_box,
                 variant_boxes,
             ),
-            Page::Workflow => Action::None,
+            Page::Traits {
+                description_box,
+                name_box,
+                method_boxes,
+            } => traits_page::handle_key_event(
+                key_event,
+                state,
+                description_box,
+                name_box,
+                method_boxes,
+            ),
         }
     }
 }

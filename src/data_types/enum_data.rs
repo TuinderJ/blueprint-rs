@@ -7,14 +7,14 @@ use ratatui::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Enum {
     pub description: String,
     pub name: String,
     pub variants: Vec<Variant>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Variant {
     pub name: String,
     pub note: String,
@@ -33,8 +33,8 @@ impl Enum {
     pub fn new() -> Self {
         Self {
             description: "".to_string(),
-            name: "".to_string(),
-            variants: vec![],
+            name: "New Enum".to_string(),
+            variants: vec![Variant::new()],
         }
     }
 
