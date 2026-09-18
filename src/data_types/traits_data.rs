@@ -46,7 +46,7 @@ impl Trait {
             ]))
         };
         header.push(Line::from(vec![
-            "trait: ".magenta(),
+            "trait ".magenta(),
             self.name.to_span(),
             " {".to_span(),
         ]));
