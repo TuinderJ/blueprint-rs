@@ -47,21 +47,36 @@ impl Enum {
     }
 
     pub fn to_list_item(&self) -> ListItem<'_> {
-        let header: Vec<Line> = vec![
-            Line::from(vec!["/// ".gray(), self.description.to_string().gray()]),
-            Line::from(self.name.to_string()),
-        ];
-        let variants: Vec<Line> = self
-            .variants
-            .iter()
-            .map(|variant| {
-                Line::from(vec![
-                    variant.name.to_span(),
-                    " /// ".gray(),
-                    variant.note.to_span().gray(),
-                ])
-            })
-            .collect();
+        let mut header: Vec<Line> = vec![];
+
+        if !self.description.is_empty() {
+            header.push(Line::from(vec![
+                "/// ".dark_gray(),
+                self.description.to_string().dark_gray(),
+            ]));
+        }
+        header.push(Line::from(vec![
+            "enum ".magenta(),
+            self.name.to_span(),
+            " {".to_span(),
+        ]));
+
+        let mut variants: Vec<Line> = vec![];
+        for variant in &self.variants {
+            if !variant.note.is_empty() {
+                variants.push(Line::from(vec![
+                    "    /// ".dark_gray(),
+                    variant.note.to_span().dark_gray(),
+                ]));
+            }
+            variants.push(Line::from(vec![
+                "    ".to_span(),
+                variant.name.to_span().yellow(),
+                ",".to_span(),
+            ]));
+        }
+        variants.push(Line::from("}".to_string()));
+
         let footer = Line::from("\n".to_string());
 
         let text: Vec<Line> = header

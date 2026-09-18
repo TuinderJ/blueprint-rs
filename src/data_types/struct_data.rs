@@ -32,23 +32,44 @@ impl Struct {
     }
 
     pub fn to_list_item(&self) -> ListItem<'_> {
-        let header: Vec<Line> = vec![
-            Line::from(vec!["/// ".gray(), self.description.to_string().gray()]),
-            Line::from(self.name.to_string()),
-        ];
-        let fields: Vec<Line> = self
-            .fields
-            .iter()
-            .map(|field| {
-                Line::from(vec![
-                    field.name.to_span(),
-                    " | ".to_span(),
-                    field.field_type.to_span(),
-                    " /// ".gray(),
-                    field.note.to_span().gray(),
-                ])
-            })
-            .collect();
+        let mut header: Vec<Line> = vec![];
+        if !self.description.is_empty() {
+            header.push(Line::from(vec![
+                "/// ".dark_gray(),
+                self.description.to_string().dark_gray(),
+            ]));
+        }
+        header.push(Line::from(vec![
+            "struct ".magenta(),
+            self.name.to_span(),
+            " {".to_span(),
+        ]));
+
+        let mut fields: Vec<Line> = vec![];
+        for field in &self.fields {
+            if !field.note.is_empty() {
+                fields.push(Line::from(vec![
+                    "    /// ".dark_gray(),
+                    field.note.to_span().dark_gray(),
+                ]));
+            }
+
+            let field_type = if field.field_type.is_empty() {
+                "unknown...".dark_gray()
+            } else {
+                field.field_type.to_span()
+            };
+
+            fields.push(Line::from(vec![
+                "    ".to_span(),
+                field.name.to_span().yellow(),
+                ": ".to_span(),
+                field_type,
+                ",".to_span(),
+            ]))
+        }
+        fields.push(Line::from("}".to_string()));
+
         let footer = Line::from("\n".to_string());
 
         let text: Vec<Line> = header
