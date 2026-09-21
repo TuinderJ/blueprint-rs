@@ -62,7 +62,7 @@ pub fn render(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    variant_boxes: &Vec<VariantBox>,
+    variant_boxes: &[VariantBox],
 ) {
     let outer_area = area.inner(Margin {
         horizontal: 1,
@@ -76,12 +76,16 @@ pub fn render(
             "<↓/↑> or <j/k>".blue().bold(),
             " Select ".into(),
             "<Enter>".blue().bold(),
+            " New Enum ".into(),
+            "<n>".blue().bold(),
             " Back ".into(),
             "<ESC>".blue().bold(),
         ]),
         Mode::Edit => Line::from(vec![
             "Navigate ".into(),
-            "<TAB/SHIFT + TAB>".blue().bold(),
+            "<Tab/Shift+Tab>".blue().bold(),
+            " New Variant ".into(),
+            " <Tab at end>".blue().bold(),
             " Submit Changes ".into(),
             "<Enter>".blue().bold(),
             " Back ".into(),
@@ -115,7 +119,6 @@ pub fn render(
         .enums
         .iter()
         .map(|item| ListItem::from(item.name.to_string()))
-        .chain(std::iter::once(ListItem::from(Line::from("+ New Enum"))))
         .collect();
 
     let list = List::new(list_items)
@@ -224,7 +227,7 @@ pub fn handle_key_event(
     state: &mut AppState,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    variant_boxes: &mut Vec<VariantBox>,
+    variant_boxes: &mut [VariantBox],
 ) -> Action {
     match state.mode {
         Mode::Display => match key_event.code {
@@ -232,12 +235,16 @@ pub fn handle_key_event(
                 state.data.enums.retain_mut(|item| {
                     item.variants
                         .retain(|variant| !variant.name.is_empty() || !variant.note.is_empty());
-                    !item.name.is_empty() && !(item.name == "New Enum".to_string())
+                    !item.name.is_empty() && item.name != "New Enum"
                 });
                 Action::GoToPage(PageKind::Home)
             }
             KeyCode::Char('j') | KeyCode::Down => {
-                state.enums_list_state.select_next();
+                if state.enums_list_state.selected().unwrap_or_default()
+                    < state.data.enums.len() - 1
+                {
+                    state.enums_list_state.select_next();
+                }
                 Action::UpdatePreview
             }
             KeyCode::Char('k') | KeyCode::Up => {
@@ -296,7 +303,7 @@ fn update_active_input(
     key_event: KeyEvent,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    variant_boxes: &mut Vec<VariantBox>,
+    variant_boxes: &mut [VariantBox],
 ) {
     match state.active_input {
         ActiveInput::Description => {
@@ -321,7 +328,7 @@ fn update_enum(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    variant_boxes: &Vec<VariantBox>,
+    variant_boxes: &[VariantBox],
 ) {
     let current_enum = state
         .data

@@ -3,7 +3,7 @@ use ratatui::{buffer::Buffer, layout::Rect};
 
 use crate::AppState;
 
-pub fn render(_area: Rect, _buf: &mut Buffer) {
+pub fn _render(_area: Rect, _buf: &mut Buffer) {
     todo!()
 }
 

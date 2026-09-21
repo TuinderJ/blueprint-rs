@@ -194,9 +194,9 @@ impl AppState {
         match page {
             PageKind::Home => self.page = Page::home(),
             PageKind::Description => self.page = Page::description(&self.data),
-            PageKind::Structs => self.page = Page::structs(&self),
-            PageKind::Enums => self.page = Page::enums(&self),
-            PageKind::Traits => self.page = Page::traits(&self),
+            PageKind::Structs => self.page = Page::structs(self),
+            PageKind::Enums => self.page = Page::enums(self),
+            PageKind::Traits => self.page = Page::traits(self),
         }
     }
 
@@ -207,17 +207,17 @@ impl AppState {
                 description_box: _,
                 name_box: _,
                 field_boxes: _,
-            } => self.page = Page::structs(&self),
+            } => self.page = Page::structs(self),
             Page::Enums {
                 description_box: _,
                 name_box: _,
                 variant_boxes: _,
-            } => self.page = Page::enums(&self),
+            } => self.page = Page::enums(self),
             Page::Traits {
                 description_box: _,
                 name_box: _,
                 method_boxes: _,
-            } => self.page = Page::traits(&self),
+            } => self.page = Page::traits(self),
         }
     }
 

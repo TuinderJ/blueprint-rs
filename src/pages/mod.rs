@@ -66,14 +66,14 @@ impl Page {
     }
 
     pub fn structs(state: &AppState) -> Self {
-        let empty_struct = Struct::empty();
+        let empty_struct = Struct::default();
         let current_struct = state
             .data
             .structs
             .get(state.structs_list_state.selected().unwrap_or_default())
             .unwrap_or(&empty_struct);
 
-        let field_boxes = if current_struct.fields.len() == 0 {
+        let field_boxes = if current_struct.fields.is_empty() {
             vec![FieldBox {
                 field_name_box: TextArea::from(vec!["".to_string()]),
                 field_type_box: TextArea::from(vec!["".to_string()]),
@@ -99,7 +99,7 @@ impl Page {
         Page::Structs {
             description_box: TextArea::from(vec![current_struct.description.to_string()]),
             name_box: TextArea::from(vec![name_text]),
-            field_boxes: field_boxes,
+            field_boxes,
         }
     }
 
@@ -111,7 +111,7 @@ impl Page {
             .get(state.enums_list_state.selected().unwrap_or_default())
             .unwrap_or(&empty_enum);
 
-        let variant_boxes = if current_enum.variants.len() == 0 {
+        let variant_boxes = if current_enum.variants.is_empty() {
             vec![VariantBox {
                 name_box: TextArea::from(vec!["".to_string()]),
                 note_box: TextArea::from(vec!["".to_string()]),
@@ -135,7 +135,7 @@ impl Page {
         Page::Enums {
             description_box: TextArea::from(vec![current_enum.description.to_string()]),
             name_box: TextArea::from(vec![name_text]),
-            variant_boxes: variant_boxes,
+            variant_boxes,
         }
     }
 
@@ -147,7 +147,7 @@ impl Page {
             .get(state.traits_list_state.selected().unwrap_or_default())
             .unwrap_or(&empty_trait);
 
-        let method_boxes = if current_trait.methods.len() == 0 {
+        let method_boxes = if current_trait.methods.is_empty() {
             let argument_boxes = vec![ArgumentBox {
                 name_box: TextArea::from(vec!["".to_string()]),
                 argument_type_box: TextArea::from(vec!["".to_string()]),
@@ -189,7 +189,7 @@ impl Page {
         Page::Traits {
             description_box: TextArea::from(vec![current_trait.description.to_string()]),
             name_box: TextArea::from(vec![name_text]),
-            method_boxes: method_boxes,
+            method_boxes,
         }
     }
 
