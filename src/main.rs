@@ -114,6 +114,7 @@ impl App {
         // TODO: check if the markdown file has changed to alert the user
         let _file_md = src_dir.join(MD_FILE);
 
+        // TODO: clean this up
         let exists = file_json.try_exists();
         let mut state = match exists {
             std::result::Result::Ok(true) => AppState::from(file_json),
@@ -121,7 +122,6 @@ impl App {
             std::result::Result::Err(_) => AppState::new(),
         };
 
-        //Ok(_) => AppState::from(file_json),
         while !state.should_exit {
             terminal.draw(|frame| self.draw(frame, &mut state))?;
             self.handle_events(&mut state)?;
