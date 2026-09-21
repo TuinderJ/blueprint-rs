@@ -1,5 +1,3 @@
-use std::iter;
-
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     buffer::Buffer,
@@ -7,7 +5,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::Line,
-    widgets::{Block, List, ListItem, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, List, ListItem, StatefulWidget, Widget},
 };
 use ratatui_textarea::TextArea;
 
@@ -26,7 +24,7 @@ fn next_active_input(state: &mut AppState) -> ActiveInput {
                 .traits
                 .get_mut(state.traits_list_state.selected().unwrap_or_default())
                 .unwrap();
-            if current_trait.methods.len() == 0 {
+            if current_trait.methods.is_empty() {
                 current_trait.add_method();
             }
             ActiveInput::Method(0, 0)
@@ -79,7 +77,7 @@ pub fn render(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    method_boxes: &Vec<MethodBox>,
+    method_boxes: &[MethodBox],
 ) {
     let outer_area = area.inner(Margin {
         horizontal: 1,
@@ -104,7 +102,7 @@ pub fn render(
             " New Method ".into(),
             "<Ctrl+n>".blue().bold(),
             " New Argument".into(),
-            "<Ctrl+m>".blue().bold(),
+            "<Ctrl+b>".blue().bold(),
             " Submit Changes ".into(),
             "<Enter>".blue().bold(),
             " Back ".into(),
@@ -221,7 +219,7 @@ pub fn render(
         let outer_block = Block::bordered()
             .border_set(border::THICK)
             .border_style(Style::default().fg(color))
-            .title(format!(" {} ", method_box.name_box.lines()[0].to_string()));
+            .title(format!(" {} ", method_box.name_box.lines()[0]));
         let block_area = outer_block.inner(areas[method_index]);
         outer_block.render(areas[method_index], buf);
 
@@ -293,7 +291,6 @@ pub fn render(
             let block_area = block.inner(name_area);
             block.render(name_area, buf);
             argument_box.name_box.render(block_area, buf);
-            // Paragraph::new("test arg name").render(block_area, buf);
 
             let color = match state.active_input {
                 ActiveInput::Method(method, argument_index) => {
@@ -314,6 +311,12 @@ pub fn render(
             argument_box.argument_type_box.render(block_area, buf);
         }
     }
+    // Widget::render(
+    //     Paragraph::new(format!("{:#?}", state.traits_list_state))
+    //         .block(Block::bordered().title(" Debug ")),
+    //     right_pane,
+    //     buf,
+    // );
 }
 
 pub fn handle_key_event(
@@ -321,7 +324,7 @@ pub fn handle_key_event(
     state: &mut AppState,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    method_boxes: &mut Vec<MethodBox>,
+    method_boxes: &mut [MethodBox],
 ) -> Action {
     match state.mode {
         Mode::Display => match key_event.code {
@@ -329,12 +332,16 @@ pub fn handle_key_event(
                 state.data.traits.retain_mut(|item| {
                     item.methods
                         .retain(|method| !method.name.is_empty() || !method.return_type.is_empty());
-                    !item.name.is_empty() && !(item.name == "New trait".to_string())
+                    !item.name.is_empty() && item.name != "New trait"
                 });
                 Action::GoToPage(PageKind::Home)
             }
             KeyCode::Char('j') | KeyCode::Down => {
-                state.traits_list_state.select_next();
+                if state.traits_list_state.selected().unwrap_or_default()
+                    < state.data.traits.len() - 1
+                {
+                    state.traits_list_state.select_next();
+                }
                 Action::UpdatePreview
             }
             KeyCode::Char('k') | KeyCode::Up => {
@@ -346,10 +353,10 @@ pub fn handle_key_event(
                 state.set_active_input(ActiveInput::Description);
                 state.data.add_trait();
                 state.traits_list_state.select_last();
-                return Action::UpdatePreview;
+                Action::UpdatePreview
             }
             KeyCode::Enter => {
-                if state.data.traits.len() == 0 {
+                if state.data.traits.is_empty() {
                     return Action::None;
                 }
                 state.mode.toggle();
@@ -378,7 +385,7 @@ pub fn handle_key_event(
                 Action::UpdatePreview
             }
             // Add an argument to the currently selected method
-            KeyCode::Char('m') => {
+            KeyCode::Char('b') => {
                 if !key_event.modifiers.contains(KeyModifiers::CONTROL) {
                     update_active_input(state, key_event, description_box, name_box, method_boxes);
                     return Action::None;
@@ -447,7 +454,7 @@ fn update_active_input(
     key_event: KeyEvent,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    method_boxes: &mut Vec<MethodBox>,
+    method_boxes: &mut [MethodBox],
 ) {
     match state.active_input {
         ActiveInput::Description => {
@@ -519,7 +526,7 @@ fn update_trait(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    method_boxes: &Vec<MethodBox>,
+    method_boxes: &[MethodBox],
 ) {
     let current_trait = state
         .data

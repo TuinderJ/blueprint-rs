@@ -23,14 +23,6 @@ impl Struct {
         }
     }
 
-    pub fn empty() -> Self {
-        Self {
-            description: "".to_string(),
-            name: "".to_string(),
-            fields: vec![],
-        }
-    }
-
     pub fn to_list_item(&self) -> ListItem<'_> {
         let mut header: Vec<Line> = vec![];
         if !self.description.is_empty() {
@@ -74,7 +66,7 @@ impl Struct {
 
         let text: Vec<Line> = header
             .into_iter()
-            .chain(fields.into_iter())
+            .chain(fields)
             .chain(iter::once(footer))
             .collect();
 

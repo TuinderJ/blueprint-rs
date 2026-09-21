@@ -1,12 +1,9 @@
-use std::iter;
-
 use ratatui::{
     style::Stylize,
     text::{Line, Text, ToSpan},
     widgets::ListItem,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Trait {
@@ -54,11 +51,9 @@ impl Trait {
         let mut methods: Vec<Line> = vec![];
         for method in &self.methods {
             methods.push(Line::from(vec![
-                "    ".to_span(),
+                "    fn ".to_span(),
                 method.name.to_span().cyan(),
-                " => ".dark_gray(),
-                method.return_type.to_span(),
-                " {".to_span(),
+                " (".to_span(),
             ]));
 
             for argument in &method.arguments {
@@ -74,17 +69,22 @@ impl Trait {
                     argument_type,
                 ]));
             }
-            methods.push(Line::from("    }"));
+            methods.push(Line::from(if method.return_type.is_empty() {
+                vec!["    );".to_span()]
+            } else {
+                vec![
+                    "    ) -> ".to_span(),
+                    method.return_type.to_span(),
+                    ";".to_span(),
+                ]
+            }));
+            methods.push(Line::default());
         }
         methods.push(Line::from("}".to_string()));
 
         let footer = vec![Line::from("".to_string()), Line::from("".to_string())];
 
-        let text: Vec<Line> = header
-            .into_iter()
-            .chain(methods.into_iter())
-            .chain(footer.into_iter())
-            .collect();
+        let text: Vec<Line> = header.into_iter().chain(methods).chain(footer).collect();
 
         ListItem::new(Text::from(text))
     }

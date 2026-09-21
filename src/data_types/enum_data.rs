@@ -81,7 +81,7 @@ impl Enum {
 
         let text: Vec<Line> = header
             .into_iter()
-            .chain(variants.into_iter())
+            .chain(variants)
             .chain(iter::once(footer))
             .collect();
 

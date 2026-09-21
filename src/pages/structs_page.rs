@@ -20,7 +20,7 @@ fn next_active_input(state: &mut AppState) -> ActiveInput {
                 .structs
                 .get_mut(state.structs_list_state.selected().unwrap_or_default())
                 .unwrap();
-            if current_struct.fields.len() == 0 {
+            if current_struct.fields.is_empty() {
                 current_struct.add_field();
             }
             ActiveInput::Field(0, 0)
@@ -70,7 +70,7 @@ pub fn render(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    field_boxes: &Vec<FieldBox>,
+    field_boxes: &[FieldBox],
 ) {
     let outer_area = area.inner(Margin {
         horizontal: 1,
@@ -84,12 +84,16 @@ pub fn render(
             "<↓/↑> or <j/k>".blue().bold(),
             " Select ".into(),
             "<Enter>".blue().bold(),
+            " New Struct ".into(),
+            "<n>".blue().bold(),
             " Back ".into(),
             "<ESC>".blue().bold(),
         ]),
         Mode::Edit => Line::from(vec![
             "Navigate ".into(),
-            "<TAB/SHIFT + TAB>".blue().bold(),
+            "<Tab/Shift+Tab>".blue().bold(),
+            " New Field ".into(),
+            " <Tab at end>".blue().bold(),
             " Submit Changes ".into(),
             "<Enter>".blue().bold(),
             " Back ".into(),
@@ -123,7 +127,6 @@ pub fn render(
         .structs
         .iter()
         .map(|item| ListItem::from(item.name.to_string()))
-        .chain(std::iter::once(ListItem::from(Line::from("+ New Struct"))))
         .collect();
 
     let list = List::new(list_items)
@@ -254,89 +257,76 @@ pub fn handle_key_event(
     state: &mut AppState,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    field_boxes: &mut Vec<FieldBox>,
+    field_boxes: &mut [FieldBox],
 ) -> Action {
-    match key_event.code {
-        KeyCode::Esc => match state.mode {
-            Mode::Display => {
+    match state.mode {
+        Mode::Display => match key_event.code {
+            KeyCode::Esc => {
                 state.data.structs.retain_mut(|item| {
                     item.fields.retain(|field| {
                         !field.name.is_empty()
                             || !field.field_type.is_empty()
                             || !field.note.is_empty()
                     });
-                    !item.name.is_empty() && !(item.name == "New Struct".to_string())
+                    !item.name.is_empty() && item.name != "New Struct"
                 });
                 Action::GoToPage(PageKind::Home)
             }
-            Mode::Edit => {
-                state.mode.toggle();
+            KeyCode::Char('j') | KeyCode::Down => {
+                if state.structs_list_state.selected().unwrap_or_default()
+                    < state.data.structs.len() - 1
+                {
+                    state.structs_list_state.select_next();
+                }
                 Action::UpdatePreview
             }
-        },
-        KeyCode::Char('j') | KeyCode::Down => match state.mode {
-            Mode::Display => {
-                state.structs_list_state.select_next();
-                Action::UpdatePreview
-            }
-            Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, field_boxes);
-                Action::None
-            }
-        },
-        KeyCode::Char('k') | KeyCode::Up => match state.mode {
-            Mode::Display => {
+            KeyCode::Char('k') | KeyCode::Up => {
                 state.structs_list_state.select_previous();
                 Action::UpdatePreview
             }
-            Mode::Edit => {
-                update_active_input(state, key_event, description_box, name_box, field_boxes);
-                Action::None
+            KeyCode::Char('n') => {
+                state.mode.toggle();
+                state.set_active_input(ActiveInput::Description);
+                state.data.add_struct();
+                state.structs_list_state.select_last();
+                Action::UpdatePreview
             }
+            KeyCode::Enter => {
+                if state.data.structs.is_empty() {
+                    return Action::None;
+                }
+                state.mode.toggle();
+                state.set_active_input(ActiveInput::Description);
+                Action::UpdatePreview
+            }
+            _ => Action::None,
         },
-        KeyCode::Tab => match state.mode {
-            Mode::Display => Action::None,
-            Mode::Edit => {
+        Mode::Edit => match key_event.code {
+            KeyCode::Esc => {
+                state.mode.toggle();
+                Action::UpdatePreview
+            }
+            KeyCode::Tab => {
                 update_struct(state, description_box, name_box, field_boxes);
                 state.active_input = next_active_input(state);
                 Action::UpdatePreview
             }
-        },
-        KeyCode::BackTab => match state.mode {
-            Mode::Display => Action::None,
-            Mode::Edit => {
+            KeyCode::BackTab => {
                 update_struct(state, description_box, name_box, field_boxes);
                 state.active_input = previous_active_input(state);
                 Action::UpdatePreview
             }
-        },
-        KeyCode::Enter => {
-            let should_add_new_struct =
-                state.structs_list_state.selected().unwrap_or_default() == state.data.structs.len();
-
-            if should_add_new_struct {
+            KeyCode::Enter => {
                 state.mode.toggle();
-                state.set_active_input(ActiveInput::Description);
-                state.data.add_struct();
-                return Action::UpdatePreview;
+                update_struct(state, description_box, name_box, field_boxes);
+                state.set_active_input(ActiveInput::None);
+                Action::UpdatePreview
             }
-
-            state.mode.toggle();
-            update_struct(state, description_box, name_box, field_boxes);
-
-            let new_input = match state.mode {
-                Mode::Display => ActiveInput::None,
-                Mode::Edit => ActiveInput::Description,
-            };
-            state.set_active_input(new_input);
-            Action::UpdatePreview
-        }
-        _ => {
-            if state.mode == Mode::Edit {
+            _ => {
                 update_active_input(state, key_event, description_box, name_box, field_boxes);
-            };
-            Action::None
-        }
+                Action::None
+            }
+        },
     }
 }
 
@@ -345,7 +335,7 @@ fn update_active_input(
     key_event: KeyEvent,
     description_box: &mut TextArea,
     name_box: &mut TextArea,
-    field_boxes: &mut Vec<FieldBox>,
+    field_boxes: &mut [FieldBox],
 ) {
     match state.active_input {
         ActiveInput::Description => {
@@ -372,7 +362,7 @@ fn update_struct(
     state: &mut AppState,
     description_box: &TextArea,
     name_box: &TextArea,
-    field_boxes: &Vec<FieldBox>,
+    field_boxes: &[FieldBox],
 ) {
     let current_struct = state
         .data
