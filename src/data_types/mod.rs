@@ -1,7 +1,9 @@
+mod commands_data;
 mod enum_data;
 mod struct_data;
 mod traits_data;
 
+pub use commands_data::*;
 pub use enum_data::*;
 pub use struct_data::*;
 pub use traits_data::*;
@@ -14,8 +16,8 @@ pub struct AppData {
     pub structs: Vec<Struct>,
     pub enums: Vec<Enum>,
     pub traits: Vec<Trait>,
-    // TODO
     pub cli_commands: Vec<Command>,
+    // TODO: everything after this still needs to be implemented
     pub workflow: Workflow,
 }
 
@@ -31,13 +33,10 @@ impl AppData {
     pub fn add_trait(&mut self) {
         self.traits.push(Trait::new());
     }
-}
 
-#[derive(Serialize, Deserialize)]
-pub struct Command {
-    pub name: String,
-    pub description: String,
-    pub subcommands: Vec<Command>,
+    pub fn add_command(&mut self) {
+        self.cli_commands.push(Command::default());
+    }
 }
 
 #[derive(Default, Serialize, Deserialize)]

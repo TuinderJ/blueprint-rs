@@ -1,5 +1,5 @@
 use crate::{
-    Action, AppData, AppState, ArgumentBox, FieldBox, MethodBox, VariantBox,
+    Action, AppData, AppState, ArgumentBox, CommandBox, FieldBox, MethodBox, VariantBox,
     data_types::{Enum, Struct, Trait},
 };
 use crossterm::event::KeyEvent;
@@ -7,6 +7,7 @@ use ratatui::{buffer::Buffer, layout::Rect};
 use ratatui_textarea::TextArea;
 use strum::{Display, EnumIter};
 
+mod commands_page;
 mod description_page;
 mod enums_page;
 mod home_page;
@@ -18,6 +19,7 @@ pub const DESCRIPTION_INDEX: usize = 0;
 pub const STRUCTS_INDEX: usize = 1;
 pub const ENUMS_INDEX: usize = 2;
 pub const TRAITS_INDEX: usize = 3;
+pub const COMMANDS_INDEX: usize = 4;
 
 #[derive(Clone, Display, Debug, Default, EnumIter)]
 pub enum Page {
@@ -44,6 +46,9 @@ pub enum Page {
         name_box: TextArea<'static>,
         method_boxes: Vec<MethodBox>,
     },
+    Commands {
+        command_boxes: Vec<CommandBox>,
+    },
 }
 
 pub enum PageKind {
@@ -52,6 +57,7 @@ pub enum PageKind {
     Structs,
     Enums,
     Traits,
+    Commands,
 }
 
 impl Page {
@@ -193,6 +199,19 @@ impl Page {
         }
     }
 
+    pub fn commands(state: &AppState) -> Self {
+        let command_boxes: Vec<CommandBox> = state
+            .data
+            .cli_commands
+            .iter()
+            .map(|command| CommandBox {
+                name_box: TextArea::from(vec![&command.name]),
+                description_box: TextArea::from(vec![&command.description]),
+            })
+            .collect();
+        Page::Commands { command_boxes }
+    }
+
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
         match self {
             Page::None => {}
@@ -213,6 +232,9 @@ impl Page {
                 name_box,
                 method_boxes,
             } => traits_page::render(area, buf, state, description_box, name_box, method_boxes),
+            Page::Commands { command_boxes } => {
+                commands_page::render(area, buf, state, command_boxes)
+            }
         }
     }
 
@@ -256,6 +278,9 @@ impl Page {
                 name_box,
                 method_boxes,
             ),
+            Page::Commands { command_boxes } => {
+                commands_page::handle_key_event(key_event, state, command_boxes)
+            }
         }
     }
 }
