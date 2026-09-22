@@ -66,7 +66,7 @@ impl Mode {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 enum ActiveInput {
     #[default]
     None,
@@ -75,6 +75,7 @@ enum ActiveInput {
     Field(usize, usize),
     Variant(usize, usize),
     Method(usize, usize),
+    Command(usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +102,12 @@ pub struct MethodBox {
 pub struct ArgumentBox {
     pub name_box: TextArea<'static>,
     pub argument_type_box: TextArea<'static>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommandBox {
+    pub name_box: TextArea<'static>,
+    pub description_box: TextArea<'static>,
 }
 
 impl App {
@@ -197,6 +204,7 @@ impl AppState {
             PageKind::Structs => self.page = Page::structs(self),
             PageKind::Enums => self.page = Page::enums(self),
             PageKind::Traits => self.page = Page::traits(self),
+            PageKind::Commands => self.page = Page::commands(self),
         }
     }
 
@@ -218,6 +226,7 @@ impl AppState {
                 name_box: _,
                 method_boxes: _,
             } => self.page = Page::traits(self),
+            Page::Commands { command_boxes: _ } => self.page = Page::commands(self),
         }
     }
 

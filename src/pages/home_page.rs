@@ -1,6 +1,8 @@
 use crate::{
     Action, AppState,
-    pages::{DESCRIPTION_INDEX, ENUMS_INDEX, Page, PageKind, STRUCTS_INDEX, TRAITS_INDEX},
+    pages::{
+        COMMANDS_INDEX, DESCRIPTION_INDEX, ENUMS_INDEX, Page, PageKind, STRUCTS_INDEX, TRAITS_INDEX,
+    },
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -92,6 +94,13 @@ pub fn render(area: Rect, buf: &mut Buffer, state: &mut AppState) {
             .iter()
             .map(|item| item.to_list_item())
             .collect();
+    } else if state.home_list_state.selected() == Some(COMMANDS_INDEX) {
+        items = state
+            .data
+            .cli_commands
+            .iter()
+            .map(|item| item.to_list_item())
+            .collect();
     }
     let list = List::new(items).block(right_block);
 
@@ -112,6 +121,8 @@ pub fn handle_key_event(key_event: KeyEvent, state: &mut AppState) -> Action {
                 return Action::GoToPage(PageKind::Enums);
             } else if state.home_list_state.selected() == Some(TRAITS_INDEX) {
                 return Action::GoToPage(PageKind::Traits);
+            } else if state.home_list_state.selected() == Some(COMMANDS_INDEX) {
+                return Action::GoToPage(PageKind::Commands);
             };
         }
         KeyCode::Char('s') => {
