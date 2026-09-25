@@ -58,6 +58,7 @@ pub enum PageKind {
     Enums,
     Traits,
     Commands,
+    Workflow,
 }
 
 impl Page {

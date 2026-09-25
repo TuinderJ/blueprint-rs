@@ -14,16 +14,45 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 mod pages;
-use crate::{data_types::AppData, pages::PageKind};
+use crate::{
+    commands::{Command, parse_arguments},
+    data_types::AppData,
+    pages::PageKind,
+};
 use pages::Page;
+mod commands;
 mod data_types;
 
 const JSON_FILE: &str = ".blueprint.json";
 const MD_FILE: &str = "blueprint.md";
 
 fn main() -> Result<()> {
+    let commands = parse_arguments();
+
+    if commands.contains(&Command::Help) {
+        print_usage();
+        return Ok(());
+    }
+
     color_eyre::install()?;
-    ratatui::run(|terminal| App::default().run(terminal))
+
+    if commands.contains(&Command::Reset) {
+        delete_json_file()?;
+    }
+
+    let page = if commands.contains(&Command::Structs) {
+        Some(PageKind::Structs)
+    } else if commands.contains(&Command::Enums) {
+        Some(PageKind::Enums)
+    } else if commands.contains(&Command::Traits) {
+        Some(PageKind::Traits)
+    } else if commands.contains(&Command::Workflow) {
+        Some(PageKind::Workflow)
+    } else {
+        None
+    };
+
+    ratatui::run(|terminal| App::default().run(terminal, page))
 }
 
 #[derive(Default)]
@@ -111,7 +140,7 @@ pub struct CommandBox {
 }
 
 impl App {
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+    fn run(&mut self, terminal: &mut DefaultTerminal, page: Option<PageKind>) -> Result<()> {
         let cwd = std::env::current_dir().expect("Failed to get current working directory.");
         let src_dir = get_project_root(&cwd)
             .unwrap_or_else(create_new_project)
@@ -122,9 +151,9 @@ impl App {
         let _file_md = src_dir.join(MD_FILE);
 
         let mut state = match file_json.try_exists() {
-            std::result::Result::Ok(true) => AppState::from(file_json),
-            std::result::Result::Ok(false) => AppState::new(),
-            std::result::Result::Err(_) => AppState::new(),
+            std::result::Result::Ok(true) => AppState::from(file_json, page),
+            std::result::Result::Ok(false) => AppState::new(page),
+            std::result::Result::Err(_) => AppState::new(page),
         };
 
         while !state.should_exit {
@@ -178,8 +207,20 @@ impl StatefulWidget for &mut App {
 }
 
 impl AppState {
-    fn new() -> Self {
+    fn new(page: Option<PageKind>) -> Self {
         let mut state = Self::default();
+        if let Some(page) = page {
+            state.page = match page {
+                PageKind::Home => Page::home(),
+                PageKind::Description => Page::description(&state.data),
+                PageKind::Structs => Page::structs(&state),
+                PageKind::Enums => Page::enums(&state),
+                PageKind::Traits => Page::traits(&state),
+                PageKind::Commands => Page::commands(&state),
+                // TODO: workflow page
+                PageKind::Workflow => todo!(),
+            }
+        }
         state.home_list_state.select(Some(0));
         state.structs_list_state.select(Some(0));
         state.enums_list_state.select(Some(0));
@@ -188,8 +229,8 @@ impl AppState {
     }
 
     // TODO: better error handling
-    fn from(path: PathBuf) -> Self {
-        let mut state = Self::new();
+    fn from(path: PathBuf, page: Option<PageKind>) -> Self {
+        let mut state = Self::new(page);
         let json = fs::read_to_string(path).expect("Failed to read from json file");
         state.data = serde_json::from_str(&json).expect("Failed to parse json");
         state
@@ -203,6 +244,8 @@ impl AppState {
             PageKind::Enums => self.page = Page::enums(self),
             PageKind::Traits => self.page = Page::traits(self),
             PageKind::Commands => self.page = Page::commands(self),
+            // TODO: workflow page
+            PageKind::Workflow => todo!(),
         }
     }
 
@@ -268,9 +311,38 @@ fn get_project_root(dir: &Path) -> Option<PathBuf> {
 }
 
 fn create_new_project() -> PathBuf {
+    // TODO: remove this
     todo!()
 }
 
+fn delete_json_file() -> Result<()> {
+    let cwd = std::env::current_dir().expect("Failed to get current working directory.");
+    let src_dir = get_project_root(&cwd)
+        .unwrap_or_else(create_new_project)
+        .join("src");
+
+    let output_file_json = src_dir.clone().join(JSON_FILE);
+    fs::remove_file(output_file_json)?;
+
+    Ok(())
+}
+
 fn generate_md_string(data: &AppData) -> String {
+    // TODO: create a real blueprint
     data.description.to_string()
+}
+
+fn print_usage() {
+    println!("usage: bl [-h | --help] [--reset] <command>");
+    println!();
+    println!("These are the available flags you can use:");
+    println!("  -h | --help   Print this message");
+    println!("  --reset       Clear all saved data and start a new blueprint");
+    println!("                <WARNING> THIS IS IRREVERSABLE");
+    println!();
+    println!("These are the available commands:");
+    println!("  structs       Start the TUI in the structs page");
+    println!("  enums         Start the TUI in the enums page");
+    println!("  traits        Start the TUI in the traits page");
+    println!("  check         Start the TUI in the workflow page");
 }

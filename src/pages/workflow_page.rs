@@ -4,6 +4,7 @@ use ratatui::{buffer::Buffer, layout::Rect};
 use crate::AppState;
 
 pub fn _render(_area: Rect, _buf: &mut Buffer) {
+    // TODO: workflow page
     todo!()
 }
 
