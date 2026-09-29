@@ -13,7 +13,6 @@ mod enums_page;
 mod home_page;
 mod structs_page;
 mod traits_page;
-mod workflow_page;
 
 pub const DESCRIPTION_INDEX: usize = 0;
 pub const STRUCTS_INDEX: usize = 1;
@@ -49,7 +48,6 @@ pub enum Page {
     Commands {
         command_boxes: Vec<CommandBox>,
     },
-    Workflow,
 }
 
 pub enum PageKind {
@@ -59,7 +57,6 @@ pub enum PageKind {
     Enums,
     Traits,
     Commands,
-    Workflow,
 }
 
 impl Page {
@@ -214,11 +211,6 @@ impl Page {
         Page::Commands { command_boxes }
     }
 
-    // TODO: workflow page
-    pub fn workflow(state: &AppState) -> Self {
-        Page::Workflow
-    }
-
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
         match self {
             Page::None => {}
@@ -242,7 +234,6 @@ impl Page {
             Page::Commands { command_boxes } => {
                 commands_page::render(area, buf, state, command_boxes)
             }
-            Page::Workflow => workflow_page::render(area, buf),
         }
     }
 
@@ -289,7 +280,6 @@ impl Page {
             Page::Commands { command_boxes } => {
                 commands_page::handle_key_event(key_event, state, command_boxes)
             }
-            Page::Workflow => workflow_page::handle_key_event(key_event, state),
         }
     }
 }

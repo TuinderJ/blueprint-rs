@@ -50,35 +50,54 @@ impl Trait {
 
         let mut methods: Vec<Line> = vec![];
         for method in &self.methods {
-            methods.push(Line::from(vec![
-                "    fn ".to_span(),
-                method.name.to_span().cyan(),
-                " (".to_span(),
-            ]));
-
-            for argument in &method.arguments {
-                let argument_type = if argument.argument_type.is_empty() {
-                    "unknown...".dark_gray()
-                } else {
-                    argument.argument_type.to_span()
-                };
+            if method.arguments.len() != 0 {
                 methods.push(Line::from(vec![
-                    "        ".to_span(),
-                    argument.name.to_span().yellow(),
-                    ": ".to_span(),
-                    argument_type,
+                    "    fn ".to_span(),
+                    method.name.to_span().cyan(),
+                    "(".to_span(),
                 ]));
-            }
-            methods.push(Line::from(if method.return_type.is_empty() {
-                vec!["    );".to_span()]
+
+                for argument in &method.arguments {
+                    let argument_type = if argument.argument_type.is_empty() {
+                        "unknown...".dark_gray()
+                    } else {
+                        argument.argument_type.to_span()
+                    };
+                    methods.push(Line::from(vec![
+                        "        ".to_span(),
+                        argument.name.to_span().yellow(),
+                        ": ".to_span(),
+                        argument_type,
+                    ]));
+                }
+                methods.push(Line::from(if method.return_type.is_empty() {
+                    vec!["    );".to_span()]
+                } else {
+                    vec![
+                        "    ) -> ".to_span(),
+                        method.return_type.to_span(),
+                        ";".to_span(),
+                    ]
+                }));
+                methods.push(Line::default());
             } else {
-                vec![
-                    "    ) -> ".to_span(),
-                    method.return_type.to_span(),
-                    ";".to_span(),
-                ]
-            }));
-            methods.push(Line::default());
+                if method.return_type.is_empty() {
+                    methods.push(Line::from(vec![
+                        "    fn ".to_span(),
+                        method.name.to_span().cyan(),
+                        "();".to_span(),
+                    ]));
+                } else {
+                    methods.push(Line::from(vec![
+                        "    fn ".to_span(),
+                        method.name.to_span().cyan(),
+                        "() -> ".to_span(),
+                        method.return_type.to_span(),
+                        ";".to_span(),
+                    ]));
+                };
+                methods.push(Line::default());
+            }
         }
         methods.push(Line::from("}".to_string()));
 

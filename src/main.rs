@@ -46,8 +46,6 @@ fn main() -> Result<()> {
         Some(PageKind::Enums)
     } else if commands.contains(&Command::Traits) {
         Some(PageKind::Traits)
-    } else if commands.contains(&Command::Workflow) {
-        Some(PageKind::Workflow)
     } else {
         None
     };
@@ -143,7 +141,7 @@ impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal, page: Option<PageKind>) -> Result<()> {
         let cwd = std::env::current_dir().expect("Failed to get current working directory.");
         let src_dir = get_project_root(&cwd)
-            .unwrap_or_else(create_new_project)
+            .expect("You are not in a rust project")
             .join("src");
 
         let file_json = src_dir.clone().join(JSON_FILE);
@@ -224,7 +222,6 @@ impl AppState {
                 PageKind::Enums => Page::enums(&state),
                 PageKind::Traits => Page::traits(&state),
                 PageKind::Commands => Page::commands(&state),
-                PageKind::Workflow => Page::workflow(&state),
             }
         }
         state
@@ -246,7 +243,6 @@ impl AppState {
             PageKind::Enums => self.page = Page::enums(self),
             PageKind::Traits => self.page = Page::traits(self),
             PageKind::Commands => self.page = Page::commands(self),
-            PageKind::Workflow => self.page = Page::workflow(self),
         }
     }
 
@@ -269,7 +265,6 @@ impl AppState {
                 method_boxes: _,
             } => self.page = Page::traits(self),
             Page::Commands { command_boxes: _ } => self.page = Page::commands(self),
-            Page::Workflow => self.page = Page::workflow(self),
         }
     }
 
@@ -284,7 +279,7 @@ impl AppState {
     fn generate_blueprint(&mut self) {
         let cwd = std::env::current_dir().expect("Failed to get current working directory.");
         let src_dir = get_project_root(&cwd)
-            .unwrap_or_else(create_new_project)
+            .expect("You are not in a rust project")
             .join("src");
 
         let output_file_json = src_dir.clone().join(JSON_FILE);
@@ -293,8 +288,8 @@ impl AppState {
         let json_string = serde_json::to_string(&self.data).expect("couldn't parse to json");
         std::fs::write(&output_file_json, json_string).expect("couldn't write to json file");
 
-        let md_string = generate_md_string(&self.data);
-        std::fs::write(&output_file_md, md_string).expect("couldn't write to md file");
+        std::fs::write(&output_file_md, &self.data.to_markdown())
+            .expect("couldn't write to md file");
 
         self.should_exit = true;
     }
@@ -312,26 +307,16 @@ fn get_project_root(dir: &Path) -> Option<PathBuf> {
     }
 }
 
-fn create_new_project() -> PathBuf {
-    // TODO: remove this
-    todo!()
-}
-
 fn delete_json_file() -> Result<()> {
     let cwd = std::env::current_dir().expect("Failed to get current working directory.");
     let src_dir = get_project_root(&cwd)
-        .unwrap_or_else(create_new_project)
+        .expect("You are not in a rust project")
         .join("src");
 
     let output_file_json = src_dir.clone().join(JSON_FILE);
     fs::remove_file(output_file_json)?;
 
     Ok(())
-}
-
-fn generate_md_string(data: &AppData) -> String {
-    // TODO: create a real blueprint
-    data.description.to_string()
 }
 
 fn print_usage() {
@@ -346,5 +331,4 @@ fn print_usage() {
     println!("  structs       Start the TUI in the structs page");
     println!("  enums         Start the TUI in the enums page");
     println!("  traits        Start the TUI in the traits page");
-    println!("  check         Start the TUI in the workflow page");
 }

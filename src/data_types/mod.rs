@@ -17,8 +17,6 @@ pub struct AppData {
     pub enums: Vec<Enum>,
     pub traits: Vec<Trait>,
     pub cli_commands: Vec<Command>,
-    // TODO: everything after this still needs to be implemented
-    pub workflow: Workflow,
 }
 
 impl AppData {
@@ -37,22 +35,139 @@ impl AppData {
     pub fn add_command(&mut self) {
         self.cli_commands.push(Command::default());
     }
-}
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct Workflow {
-    pub lists: Vec<List>,
-}
+    pub fn to_markdown(&self) -> String {
+        // Header
+        let mut markdown: String = format!("# Description\n{}\n\n", self.description.to_string());
 
-#[derive(Serialize, Deserialize)]
-pub struct List {
-    pub header: String,
-    pub tasks: Vec<Task>,
-}
+        // Structs
+        if self.structs.len() != 0 {
+            markdown += "# Structs\n```rust\n";
+            self.structs.iter().for_each(|current| {
+                // Description
+                if !current.description.is_empty() {
+                    markdown = format!("{}/// {}\n", markdown, current.description);
+                }
 
-#[derive(Serialize, Deserialize)]
-pub struct Task {
-    pub title: String,
-    pub completed: bool,
-    pub subtasks: Vec<Task>,
+                // Name
+                markdown = format!("{}struct {} {{\n", markdown, current.name);
+
+                // Fields
+                current.fields.iter().for_each(|field| {
+                    // Field notes
+                    if !field.note.is_empty() {
+                        markdown = format!("{}\t/// {}\n", markdown, field.note);
+                    }
+                    // Field name and type
+                    if field.field_type.is_empty() {
+                        markdown = format!("{}\t{}: unknown,\n", markdown, field.name);
+                    } else {
+                        markdown = format!("{}\t{}: {},\n", markdown, field.name, field.field_type);
+                    };
+                });
+
+                // Footer
+                markdown = format!("{}}}\n\n", markdown);
+            });
+            markdown += "```\n\n";
+        }
+
+        // Enums
+        if self.enums.len() != 0 {
+            markdown += "# Enums\n```rust\n";
+            self.enums.iter().for_each(|current| {
+                // Description
+                if !current.description.is_empty() {
+                    markdown = format!("{}/// {}\n", markdown, current.description);
+                }
+
+                // Name
+                markdown = format!("{}enum {} {{\n", markdown, current.name);
+
+                // Variants
+                current.variants.iter().for_each(|variant| {
+                    // Field notes
+                    if !variant.note.is_empty() {
+                        markdown = format!("{}\t/// {}\n", markdown, variant.note);
+                    }
+                    markdown = format!("{}\t{},\n", markdown, variant.name);
+                });
+
+                // Footer
+                markdown = format!("{}}}\n\n", markdown);
+            });
+            markdown += "```\n\n";
+        }
+
+        // Traits
+        if self.traits.len() != 0 {
+            markdown += "# Traits\n```rust\n";
+            self.traits.iter().for_each(|current| {
+                // Description
+                if !current.description.is_empty() {
+                    markdown = format!("{}/// {}\n", markdown, current.description);
+                }
+
+                // Name
+                markdown = format!("{}trait {} {{\n", markdown, current.name);
+
+                // Methods
+                current.methods.iter().for_each(|method| {
+                    if method.arguments.len() > 0 {
+                        markdown = format!("{}\tfn {} (\n", markdown, method.name);
+                        method.arguments.iter().for_each(|argument| {
+                            if argument.argument_type.is_empty() {
+                                markdown = format!("{}\t\t{}: unknown,\n", markdown, argument.name);
+                            } else {
+                                markdown = format!(
+                                    "{}\t\t{}: {},\n",
+                                    markdown, argument.name, argument.argument_type
+                                );
+                            }
+                        });
+                        if method.return_type.is_empty() {
+                            markdown = format!("{}\t);\n", markdown);
+                        } else {
+                            markdown = format!("{}\t) -> {};\n", markdown, method.return_type);
+                        };
+
+                        markdown += "\n";
+                    } else {
+                        if method.return_type.is_empty() {
+                            markdown = format!("{}\tfn {} ();\n", markdown, method.name);
+                        } else {
+                            markdown = format!(
+                                "{}\tfn {} () -> {};\n",
+                                markdown, method.name, method.return_type
+                            );
+                        }
+
+                        markdown += "\n";
+                    };
+                });
+
+                // Footer
+                markdown = format!("{}}}\n\n", markdown);
+            });
+            markdown += "```\n\n";
+        }
+
+        // CLI Sub Commands
+        if self.cli_commands.len() != 0 {
+            markdown += "# CLI Sub-Commands\n```bash\n";
+            self.cli_commands.iter().for_each(|command| {
+                if command.description.is_empty() {
+                    markdown = format!("{}{}\n\n", markdown, command.name);
+                } else {
+                    markdown = format!(
+                        "{}{}\n# {}\n\n",
+                        markdown, command.name, command.description
+                    );
+                }
+            });
+            markdown += "```\n\n";
+        }
+
+        markdown
+    }
 }

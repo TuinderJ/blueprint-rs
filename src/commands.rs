@@ -5,7 +5,6 @@ pub enum Command {
     Structs,
     Enums,
     Traits,
-    Workflow,
 }
 
 pub fn parse_arguments() -> Vec<Command> {
@@ -23,8 +22,6 @@ pub fn parse_arguments() -> Vec<Command> {
                 Some(Command::Enums)
             } else if arg == "traits" {
                 Some(Command::Traits)
-            } else if arg == "check" {
-                Some(Command::Workflow)
             } else {
                 None
             }
