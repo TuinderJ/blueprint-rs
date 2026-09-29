@@ -1,15 +1,16 @@
 use crossterm::event::KeyEvent;
 use ratatui::{buffer::Buffer, layout::Rect};
 
-use crate::AppState;
+use crate::{Action, AppState};
 
-pub fn _render(_area: Rect, _buf: &mut Buffer) {
+pub fn render(area: Rect, buf: &mut Buffer) {
     // TODO: workflow page
     todo!()
 }
 
-pub fn _handle_key_event(key_event: KeyEvent, _state: &mut AppState) {
+pub fn handle_key_event(key_event: KeyEvent, state: &mut AppState) -> Action {
+    // TODO: workflow page
     match key_event.code {
-        _ => {}
+        _ => Action::None,
     }
 }

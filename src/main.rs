@@ -152,8 +152,8 @@ impl App {
 
         let mut state = match file_json.try_exists() {
             std::result::Result::Ok(true) => AppState::from(file_json, page),
-            std::result::Result::Ok(false) => AppState::new(page),
-            std::result::Result::Err(_) => AppState::new(page),
+            std::result::Result::Ok(false) => AppState::new(None, page),
+            std::result::Result::Err(_) => AppState::new(None, page),
         };
 
         while !state.should_exit {
@@ -207,8 +207,15 @@ impl StatefulWidget for &mut App {
 }
 
 impl AppState {
-    fn new(page: Option<PageKind>) -> Self {
+    fn new(data: Option<AppData>, page: Option<PageKind>) -> Self {
         let mut state = Self::default();
+        state.home_list_state.select(Some(0));
+        state.structs_list_state.select(Some(0));
+        state.enums_list_state.select(Some(0));
+        state.traits_list_state.select(Some(0));
+        if let Some(data) = data {
+            state.data = data;
+        }
         if let Some(page) = page {
             state.page = match page {
                 PageKind::Home => Page::home(),
@@ -217,22 +224,17 @@ impl AppState {
                 PageKind::Enums => Page::enums(&state),
                 PageKind::Traits => Page::traits(&state),
                 PageKind::Commands => Page::commands(&state),
-                // TODO: workflow page
-                PageKind::Workflow => todo!(),
+                PageKind::Workflow => Page::workflow(&state),
             }
         }
-        state.home_list_state.select(Some(0));
-        state.structs_list_state.select(Some(0));
-        state.enums_list_state.select(Some(0));
-        state.traits_list_state.select(Some(0));
         state
     }
 
     // TODO: better error handling
     fn from(path: PathBuf, page: Option<PageKind>) -> Self {
-        let mut state = Self::new(page);
         let json = fs::read_to_string(path).expect("Failed to read from json file");
-        state.data = serde_json::from_str(&json).expect("Failed to parse json");
+        let data = serde_json::from_str(&json).expect("Failed to parse json");
+        let state = Self::new(data, page);
         state
     }
 
@@ -244,8 +246,7 @@ impl AppState {
             PageKind::Enums => self.page = Page::enums(self),
             PageKind::Traits => self.page = Page::traits(self),
             PageKind::Commands => self.page = Page::commands(self),
-            // TODO: workflow page
-            PageKind::Workflow => todo!(),
+            PageKind::Workflow => self.page = Page::workflow(self),
         }
     }
 
@@ -268,6 +269,7 @@ impl AppState {
                 method_boxes: _,
             } => self.page = Page::traits(self),
             Page::Commands { command_boxes: _ } => self.page = Page::commands(self),
+            Page::Workflow => self.page = Page::workflow(self),
         }
     }
 
