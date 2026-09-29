@@ -74,12 +74,16 @@ pub fn render(area: Rect, buf: &mut Buffer, state: &mut AppState, command_boxes:
     let inner_area = outer_block.inner(outer_area);
     outer_block.render(outer_area, buf);
 
+    let block = Block::bordered();
+    let area = block.inner(inner_area);
+    block.render(inner_area, buf);
+
     let mut constraints: Vec<Constraint> = vec![];
     for _ in command_boxes {
         constraints.push(Constraint::Length(8));
     }
 
-    let areas = Layout::vertical(constraints).split(inner_area);
+    let areas = Layout::vertical(constraints).split(area);
 
     for (index, command_box) in command_boxes.iter().enumerate() {
         let block = Block::bordered();

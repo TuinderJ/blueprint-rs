@@ -330,8 +330,12 @@ pub fn handle_key_event(
         Mode::Display => match key_event.code {
             KeyCode::Esc => {
                 state.data.traits.retain_mut(|item| {
-                    item.methods
-                        .retain(|method| !method.name.is_empty() || !method.return_type.is_empty());
+                    item.methods.retain_mut(|method| {
+                        method
+                            .arguments
+                            .retain(|argument| !argument.name.is_empty());
+                        !method.name.is_empty() || !method.return_type.is_empty()
+                    });
                     !item.name.is_empty() && item.name != "New trait"
                 });
                 Action::GoToPage(PageKind::Home)
