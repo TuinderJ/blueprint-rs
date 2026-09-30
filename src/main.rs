@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use color_eyre::eyre::{Ok, Result};
+use color_eyre::eyre::{Ok, Result, eyre};
 use crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -139,17 +139,15 @@ pub struct CommandBox {
 
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal, page: Option<PageKind>) -> Result<()> {
-        let cwd = std::env::current_dir().expect("Failed to get current working directory.");
-        let src_dir = get_project_root(&cwd)
-            .expect("You are not in a rust project")
-            .join("src");
+        let cwd = std::env::current_dir()?;
+        let src_dir = get_project_root(&cwd)?.join("src");
 
         let file_json = src_dir.clone().join(JSON_FILE);
         // TODO: check if the markdown file has changed to alert the user
         let _file_md = src_dir.join(MD_FILE);
 
         let mut state = match file_json.try_exists() {
-            std::result::Result::Ok(true) => AppState::from(file_json, page),
+            std::result::Result::Ok(true) => AppState::from(file_json, page)?,
             std::result::Result::Ok(false) => AppState::new(None, page),
             std::result::Result::Err(_) => AppState::new(None, page),
         };
@@ -169,7 +167,7 @@ impl App {
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 let action = self.handle_key_event(key_event, state);
-                self.handle_action(action, state);
+                self.handle_action(action, state)?;
             }
             _ => {}
         };
@@ -183,14 +181,15 @@ impl App {
         action
     }
 
-    pub fn handle_action(&mut self, action: Action, state: &mut AppState) {
+    pub fn handle_action(&mut self, action: Action, state: &mut AppState) -> Result<()> {
         match action {
             Action::None => {}
             Action::GoToPage(page) => state.go_to_page(page),
             Action::UpdatePreview => state.reload_page(),
             Action::Exit => state.exit(),
-            Action::GenerateBlueprint => state.generate_blueprint(),
+            Action::GenerateBlueprint => state.generate_blueprint()?,
         };
+        Ok(())
     }
 }
 
@@ -227,12 +226,11 @@ impl AppState {
         state
     }
 
-    // TODO: better error handling
-    fn from(path: PathBuf, page: Option<PageKind>) -> Self {
-        let json = fs::read_to_string(path).expect("Failed to read from json file");
-        let data = serde_json::from_str(&json).expect("Failed to parse json");
+    fn from(path: PathBuf, page: Option<PageKind>) -> Result<Self> {
+        let json = fs::read_to_string(path)?;
+        let data = serde_json::from_str(&json)?;
         let state = Self::new(data, page);
-        state
+        Ok(state)
     }
 
     fn go_to_page(&mut self, page: PageKind) {
@@ -276,42 +274,37 @@ impl AppState {
         self.should_exit = true;
     }
 
-    fn generate_blueprint(&mut self) {
-        let cwd = std::env::current_dir().expect("Failed to get current working directory.");
-        let src_dir = get_project_root(&cwd)
-            .expect("You are not in a rust project")
-            .join("src");
+    fn generate_blueprint(&mut self) -> Result<()> {
+        let cwd = std::env::current_dir()?;
+        let src_dir = get_project_root(&cwd)?.join("src");
 
         let output_file_json = src_dir.clone().join(JSON_FILE);
         let output_file_md = src_dir.join(MD_FILE);
 
-        let json_string = serde_json::to_string(&self.data).expect("couldn't parse to json");
-        std::fs::write(&output_file_json, json_string).expect("couldn't write to json file");
-
-        std::fs::write(&output_file_md, &self.data.to_markdown())
-            .expect("couldn't write to md file");
+        let json_string = serde_json::to_string(&self.data)?;
+        std::fs::write(&output_file_json, json_string)?;
+        std::fs::write(&output_file_md, &self.data.to_markdown())?;
 
         self.should_exit = true;
+        Ok(())
     }
 }
 
-fn get_project_root(dir: &Path) -> Option<PathBuf> {
+fn get_project_root(dir: &Path) -> Result<PathBuf> {
     let mut current = dir.to_path_buf();
     loop {
         if current.join("Cargo.toml").exists() {
-            return Some(current);
+            return Ok(current);
         };
         if !current.pop() {
-            return None;
+            return Err(eyre!("You are not in a rust project"));
         }
     }
 }
 
 fn delete_json_file() -> Result<()> {
-    let cwd = std::env::current_dir().expect("Failed to get current working directory.");
-    let src_dir = get_project_root(&cwd)
-        .expect("You are not in a rust project")
-        .join("src");
+    let cwd = std::env::current_dir()?;
+    let src_dir = get_project_root(&cwd)?.join("src");
 
     let output_file_json = src_dir.clone().join(JSON_FILE);
     fs::remove_file(output_file_json)?;
