@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 use color_eyre::eyre::{Ok, Result, eyre};
@@ -26,25 +27,27 @@ mod data_types;
 const JSON_FILE: &str = ".blueprint.json";
 const MD_FILE: &str = "blueprint.md";
 
-fn main() -> Result<()> {
-    let commands = parse_arguments();
+static COMMANDS: OnceLock<Vec<Command>> = OnceLock::new();
 
-    if commands.contains(&Command::Help) {
+fn main() -> Result<()> {
+    let _ = COMMANDS.set(parse_arguments());
+
+    if command_is_set(Command::Help) {
         print_usage();
         return Ok(());
     }
 
     color_eyre::install()?;
 
-    if commands.contains(&Command::Reset) {
+    if command_is_set(Command::Reset) {
         delete_json_file()?;
     }
 
-    let page = if commands.contains(&Command::Structs) {
+    let page = if command_is_set(Command::Structs) {
         Some(PageKind::Structs)
-    } else if commands.contains(&Command::Enums) {
+    } else if command_is_set(Command::Enums) {
         Some(PageKind::Enums)
-    } else if commands.contains(&Command::Traits) {
+    } else if command_is_set(Command::Traits) {
         Some(PageKind::Traits)
     } else {
         None
@@ -143,11 +146,26 @@ impl App {
         let src_dir = get_project_root(&cwd)?.join("src");
 
         let file_json = src_dir.clone().join(JSON_FILE);
-        // TODO: check if the markdown file has changed to alert the user
-        let _file_md = src_dir.join(MD_FILE);
+        let file_md = src_dir.join(MD_FILE);
 
         let mut state = match file_json.try_exists() {
-            std::result::Result::Ok(true) => AppState::from(file_json, page)?,
+            std::result::Result::Ok(true) => {
+                let json = fs::read_to_string(file_json)?;
+                let data = serde_json::from_str(&json)?;
+                let state = AppState::new(data, page);
+
+                let expected_md = state.data.to_markdown();
+                let current_md = fs::read_to_string(file_md)?;
+
+                if current_md != "" && current_md != expected_md && !command_is_set(Command::Force)
+                {
+                    return Err(eyre!(
+                        "Your blueprint has been modified.\nIf you wish to continue and remove your changes, run the command again with the --force flag."
+                    ));
+                }
+
+                state
+            }
             std::result::Result::Ok(false) => AppState::new(None, page),
             std::result::Result::Err(_) => AppState::new(None, page),
         };
@@ -224,13 +242,6 @@ impl AppState {
             }
         }
         state
-    }
-
-    fn from(path: PathBuf, page: Option<PageKind>) -> Result<Self> {
-        let json = fs::read_to_string(path)?;
-        let data = serde_json::from_str(&json)?;
-        let state = Self::new(data, page);
-        Ok(state)
     }
 
     fn go_to_page(&mut self, page: PageKind) {
@@ -310,6 +321,12 @@ fn delete_json_file() -> Result<()> {
     fs::remove_file(output_file_json)?;
 
     Ok(())
+}
+
+fn command_is_set(command: Command) -> bool {
+    COMMANDS
+        .get()
+        .is_some_and(|commands| commands.contains(&command))
 }
 
 fn print_usage() {
