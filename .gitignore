@@ -1,4 +1,3 @@
 /target
-/src/.blueprint.json
-/src/.blureprint.json.bak
+/src/.blueprint.*
 /src/blueprint.md
